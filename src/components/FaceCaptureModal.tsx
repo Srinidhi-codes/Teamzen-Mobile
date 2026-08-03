@@ -7,7 +7,10 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  useWindowDimensions,
+  Platform,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import {
   descriptorFromPhotoUri,
@@ -43,6 +46,9 @@ export default function FaceCaptureModal({
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [busy, setBusy] = useState(false);
+  const { height } = useWindowDimensions();
+  // Keep preview on-screen with actions visible (no scroll)
+  const cameraHeight = Math.min(Math.round(height * 0.48), 360);
 
   const capture = async () => {
     if (!cameraRef.current) return;
@@ -88,8 +94,8 @@ export default function FaceCaptureModal({
 
   if (!permission?.granted) {
     return (
-      <Modal visible transparent animationType="slide">
-        <View style={styles.sheet}>
+      <Modal visible transparent animationType="slide" statusBarTranslucent>
+        <SafeAreaView style={styles.sheet} edges={["top", "bottom"]}>
           <Text style={styles.title}>Camera permission needed</Text>
           <Text style={styles.hint}>Face attendance requires camera access.</Text>
           <TouchableOpacity style={styles.primaryBtn} onPress={requestPermission}>
@@ -98,23 +104,25 @@ export default function FaceCaptureModal({
           <TouchableOpacity style={styles.secondaryBtn} onPress={onClose}>
             <Text style={styles.secondaryText}>Cancel</Text>
           </TouchableOpacity>
-        </View>
+        </SafeAreaView>
       </Modal>
     );
   }
 
   return (
-    <Modal visible animationType="slide">
-      <View style={styles.container}>
-        <Text style={styles.title}>
-          {mode === "enroll" ? "Enroll your face" : "Verify face"}
-        </Text>
-        <Text style={styles.hint}>
-          FaceNet models are available on the web portal. Mobile capture will prompt if models are missing.
-        </Text>
-        <View style={styles.cameraWrap}>
+    <Modal visible animationType="slide" statusBarTranslucent>
+      <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+        <View style={styles.header}>
+          <Text style={styles.title}>
+            {mode === "enroll" ? "Enroll your face" : "Verify face"}
+          </Text>
+          <Text style={styles.hint}>Center your face, then tap capture</Text>
+        </View>
+
+        <View style={[styles.cameraWrap, { height: cameraHeight }]}>
           <CameraView ref={cameraRef} style={styles.camera} facing="front" />
         </View>
+
         <View style={styles.actions}>
           <TouchableOpacity style={styles.secondaryBtn} onPress={onClose} disabled={busy}>
             <Text style={styles.secondaryText}>Cancel</Text>
@@ -129,36 +137,54 @@ export default function FaceCaptureModal({
             )}
           </TouchableOpacity>
         </View>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0f172a", padding: 16, paddingTop: 48 },
+  container: {
+    flex: 1,
+    backgroundColor: "#0f172a",
+    paddingHorizontal: 16,
+    justifyContent: "space-between",
+  },
   sheet: {
     flex: 1,
     justifyContent: "center",
     backgroundColor: "#0f172a",
     padding: 24,
+    gap: 12,
   },
-  title: { color: "#fff", fontSize: 18, fontWeight: "600", marginBottom: 8 },
-  hint: { color: "#94a3b8", fontSize: 13, marginBottom: 16 },
+  header: {
+    paddingTop: Platform.OS === "android" ? 8 : 0,
+    paddingBottom: 8,
+  },
+  title: { color: "#fff", fontSize: 18, fontWeight: "600", marginBottom: 4 },
+  hint: { color: "#94a3b8", fontSize: 13 },
   cameraWrap: {
-    flex: 1,
+    width: "100%",
+    alignSelf: "center",
     borderRadius: 16,
     overflow: "hidden",
     borderWidth: 2,
     borderColor: "#38bdf8",
+    backgroundColor: "#000",
   },
   camera: { flex: 1 },
-  actions: { flexDirection: "row", gap: 12, marginTop: 16 },
+  actions: {
+    flexDirection: "row",
+    gap: 12,
+    paddingVertical: 16,
+  },
   primaryBtn: {
     flex: 1,
     backgroundColor: "#0284c7",
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: "center",
+    justifyContent: "center",
+    minHeight: 48,
   },
   primaryText: { color: "#fff", fontWeight: "600" },
   secondaryBtn: {
@@ -167,6 +193,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: "center",
+    justifyContent: "center",
+    minHeight: 48,
   },
   secondaryText: { color: "#e2e8f0", fontWeight: "500" },
 });
