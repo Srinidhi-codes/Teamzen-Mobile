@@ -10,9 +10,10 @@ import {
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import {
-  cosineSimilarity,
   descriptorFromPhotoUri,
-  FACE_MATCH_THRESHOLD,
+  distanceToSimilarity,
+  euclideanDistance,
+  FACE_DISTANCE_THRESHOLD,
   isFaceMatch,
 } from "../services/faceDescriptor";
 
@@ -57,14 +58,15 @@ export default function FaceCaptureModal({
 
       if (mode === "verify") {
         if (!enrolledDescriptor?.length) {
-          Alert.alert("Not enrolled", "Please enroll your face first.");
+          Alert.alert("Not enrolled", "Please enroll your face first on the web portal.");
           return;
         }
-        const matchScore = cosineSimilarity(descriptor, enrolledDescriptor);
-        if (!isFaceMatch(matchScore)) {
+        const distance = euclideanDistance(descriptor, enrolledDescriptor);
+        const matchScore = distanceToSimilarity(distance);
+        if (!isFaceMatch(distance)) {
           Alert.alert(
             "Face mismatch",
-            `Score ${matchScore.toFixed(2)} (need ≥ ${FACE_MATCH_THRESHOLD}). Try again.`
+            `Distance ${distance.toFixed(2)} (need ≤ ${FACE_DISTANCE_THRESHOLD}). Try again.`
           );
           return;
         }
@@ -73,7 +75,10 @@ export default function FaceCaptureModal({
         await onSuccess({ descriptor, matchScore: 1, verified: true, imageBase64, photoUri: photo.uri });
       }
     } catch (e: any) {
-      Alert.alert("Camera error", e?.message || "Could not capture selfie");
+      Alert.alert(
+        "Face capture",
+        e?.message || "Could not verify face. Use the web portal for face attendance for now."
+      );
     } finally {
       setBusy(false);
     }
@@ -104,7 +109,9 @@ export default function FaceCaptureModal({
         <Text style={styles.title}>
           {mode === "enroll" ? "Enroll your face" : "Verify face"}
         </Text>
-        <Text style={styles.hint}>Center your face and tap capture</Text>
+        <Text style={styles.hint}>
+          FaceNet models are available on the web portal. Mobile capture will prompt if models are missing.
+        </Text>
         <View style={styles.cameraWrap}>
           <CameraView ref={cameraRef} style={styles.camera} facing="front" />
         </View>

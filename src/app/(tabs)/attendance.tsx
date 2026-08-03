@@ -134,8 +134,11 @@ export default function AttendanceScreen() {
   const [isMockEnabled, setIsMockEnabled] = useState(false);
 
   const faceEnabled = !!setupData?.me?.organization?.faceAttendanceEnabled;
-  const faceEnrolled = !!setupData?.me?.faceEnrolled;
   const enrolledDescriptor = setupData?.me?.faceDescriptor || null;
+  const faceEnrolled =
+    !!setupData?.me?.faceEnrolled &&
+    Array.isArray(enrolledDescriptor) &&
+    enrolledDescriptor.length === 128;
 
   const fetchSetupData = async () => {
     try {
@@ -305,7 +308,7 @@ export default function AttendanceScreen() {
 
   const completePunchWithFace = async (
     type: 'in' | 'out',
-    result: { matchScore: number; verified: boolean; imageBase64: string; photoUri: string }
+    result: { matchScore: number; verified: boolean; imageBase64: string; photoUri: string; descriptor: number[] }
   ) => {
     if (!currentCoords || !setupData?.me?.officeLocation) return;
     setIsPunching(true);
@@ -320,6 +323,7 @@ export default function AttendanceScreen() {
             loginTime: timeStr,
             faceVerified: result.verified,
             faceMatchScore: result.matchScore,
+            faceDescriptor: result.descriptor,
           },
         });
         if (data.checkIn?.id) {
@@ -334,6 +338,7 @@ export default function AttendanceScreen() {
             logoutTime: timeStr,
             faceVerified: result.verified,
             faceMatchScore: result.matchScore,
+            faceDescriptor: result.descriptor,
           },
         });
         if (data.checkOut?.id) {
