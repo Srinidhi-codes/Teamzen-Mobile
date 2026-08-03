@@ -208,10 +208,6 @@ export default function AttendanceScreen() {
     }
 
     if (faceEnabled) {
-      if (!isWithinGeofence) {
-        Alert.alert('Outside geofence', 'Move inside the office radius to check in.');
-        return;
-      }
       if (!faceEnrolled) {
         Alert.alert('Face enrollment required', 'Enroll your face before punching.');
         setFaceModal('enroll');
@@ -249,10 +245,6 @@ export default function AttendanceScreen() {
     }
 
     if (faceEnabled) {
-      if (!isWithinGeofence) {
-        Alert.alert('Outside geofence', 'Move inside the office radius to check out.');
-        return;
-      }
       if (!faceEnrolled) {
         Alert.alert('Face enrollment required', 'Enroll your face before punching.');
         setFaceModal('enroll');
@@ -487,7 +479,7 @@ export default function AttendanceScreen() {
             </Text>
             <Text style={styles.coordsText}>
               {faceEnrolled
-                ? 'Punch requires face verify + geofence.'
+                ? 'Punch requires face verification. Outside geofence is flagged only.'
                 : 'Enroll your face before check-in/out.'}
             </Text>
             <TouchableOpacity
@@ -524,10 +516,15 @@ export default function AttendanceScreen() {
                 style={[
                   styles.punchButton,
                   styles.inButton,
-                  (!isWithinGeofence || (todayRecord !== null && todayRecord.loginTime !== null)) && styles.disabledButton,
+                  ((!faceEnabled && !isWithinGeofence) ||
+                    (todayRecord !== null && todayRecord.loginTime !== null)) &&
+                    styles.disabledButton,
                 ]}
                 onPress={handleCheckIn}
-                disabled={!isWithinGeofence || (todayRecord !== null && todayRecord.loginTime !== null)}
+                disabled={
+                  (!faceEnabled && !isWithinGeofence) ||
+                  (todayRecord !== null && todayRecord.loginTime !== null)
+                }
               >
                 <Ionicons name="log-in" size={20} color="#ffffff" />
                 <Text style={styles.punchButtonText}>Clock In</Text>
@@ -537,12 +534,15 @@ export default function AttendanceScreen() {
                 style={[
                   styles.punchButton,
                   styles.outButton,
-                  (!isWithinGeofence || !todayRecord || !todayRecord.loginTime || todayRecord.logoutTime) &&
+                  ((!faceEnabled && !isWithinGeofence) ||
+                    !todayRecord ||
+                    !todayRecord.loginTime ||
+                    todayRecord.logoutTime) &&
                     styles.disabledButton,
                 ]}
                 onPress={handleCheckOut}
                 disabled={
-                  !isWithinGeofence ||
+                  (!faceEnabled && !isWithinGeofence) ||
                   !todayRecord ||
                   todayRecord.loginTime === null ||
                   todayRecord.logoutTime !== null
@@ -554,9 +554,14 @@ export default function AttendanceScreen() {
             </View>
           )}
 
-          {!isWithinGeofence && (
+          {!isWithinGeofence && !faceEnabled && (
             <Text style={styles.warningText}>
               You must be within the geofenced office area to check in or out.
+            </Text>
+          )}
+          {!isWithinGeofence && faceEnabled && (
+            <Text style={styles.warningText}>
+              Outside geofence — punch is allowed; location will be flagged.
             </Text>
           )}
         </View>
