@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import {
+  descriptorFromPhoto,
   descriptorFromPhotoUri,
   distanceToSimilarity,
   euclideanDistance,
@@ -57,33 +58,29 @@ export default function FaceCaptureModal({
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
         skipProcessing: false,
+        base64: true,
       });
       if (!photo?.uri) throw new Error("Capture failed");
 
-      const { descriptor, imageBase64 } = await descriptorFromPhotoUri(photo.uri);
+      const result = await descriptorFromPhoto(photo.uri, photo.base64, {
+        verify: mode === "verify",
+        enroll: mode === "enroll",
+      });
 
-      if (mode === "verify") {
-        if (!enrolledDescriptor?.length) {
-          Alert.alert("Not enrolled", "Please enroll your face first on the web portal.");
-          return;
-        }
-        const distance = euclideanDistance(descriptor, enrolledDescriptor);
-        const matchScore = distanceToSimilarity(distance);
-        if (!isFaceMatch(distance)) {
-          Alert.alert(
-            "Face mismatch",
-            `Distance ${distance.toFixed(2)} (need ≤ ${FACE_DISTANCE_THRESHOLD}). Try again.`
-          );
-          return;
-        }
-        await onSuccess({ descriptor, matchScore, verified: true, imageBase64, photoUri: photo.uri });
-      } else {
-        await onSuccess({ descriptor, matchScore: 1, verified: true, imageBase64, photoUri: photo.uri });
-      }
+      const descriptor = result.descriptor;
+      const matchScore = result.matchScore ?? 1.0;
+
+      await onSuccess({
+        descriptor,
+        matchScore,
+        verified: result.verified ?? true,
+        imageBase64: result.imageBase64,
+        photoUri: photo.uri,
+      });
     } catch (e: any) {
       Alert.alert(
-        "Face capture",
-        e?.message || "Could not verify face. Use the web portal for face attendance for now."
+        "Face Verification",
+        e?.message || "Could not detect or verify face. Ensure good lighting and look directly at the camera."
       );
     } finally {
       setBusy(false);

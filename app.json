@@ -52,7 +52,11 @@
         {
           "locationWhenInUsePermission": "Allow location access to check in and out of your office."
         }
-      ]
+      ],
+      "expo-secure-store",
+      "expo-status-bar",
+      "expo-web-browser",
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,
