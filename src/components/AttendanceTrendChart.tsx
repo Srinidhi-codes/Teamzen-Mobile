@@ -121,22 +121,24 @@ export default function AttendanceTrendChart({ data, currentRate }: Props) {
                     },
                   ]}
                 >
-                  <LinearGradient
-                    colors={
-                      isSelected
-                        ? [accentColors.primary, accentColors.active || accentColors.primary]
-                        : [accentColors.primary + '90', accentColors.primary + '35']
-                    }
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 0, y: 1 }}
-                    style={[
-                      styles.barFill,
-                      {
-                        height: `${clampedHeight}%`,
-                        borderRadius: isSelected ? 10 : 8,
-                      },
-                    ]}
-                  />
+                  <View style={{ height: `${clampedHeight}%`, width: '100%' }}>
+                    <LinearGradient
+                      colors={
+                        isSelected
+                          ? [accentColors.primary, accentColors.active || accentColors.primary]
+                          : [accentColors.primary + '90', accentColors.primary + '35']
+                      }
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 0, y: 1 }}
+                      style={[
+                        styles.barFill,
+                        {
+                          height: '100%',
+                          borderRadius: isSelected ? 10 : 8,
+                        },
+                      ]}
+                    />
+                  </View>
                 </View>
 
                 {/* Month label */}
