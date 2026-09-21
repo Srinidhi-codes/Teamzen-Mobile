@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
-  View,
+  Text,
   TextInput,
   TouchableOpacity,
-  Text,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
+  Image,
+  View,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -389,6 +390,15 @@ export default function LoginScreen() {
         style={styles.container}
       >
         <View style={styles.content}>
+          <View style={styles.heroImageContainer}>
+            <Image
+              source={require('../../assets/images/login-employee.webp')}
+              style={styles.heroImage}
+              resizeMode="cover"
+            />
+            <View style={styles.heroImageOverlay} />
+          </View>
+
           {/* Logo & Header */}
           <View style={styles.logoSection}>
             <BrandLogo size={52} subtitle="HR Portal & Payroll Assistant" />
@@ -672,10 +682,27 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  heroImageContainer: {
+    height: 180,
+    width: '100%',
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 24,
+    position: 'relative',
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroImageOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+  },
   content: {
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
+    paddingTop: 16,
     paddingBottom: 40,
   },
   logoSection: {
