@@ -1,15 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
-  Text,
+  View,
   TextInput,
   TouchableOpacity,
+  Text,
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
-  Image,
-  ImageBackground,
-  View,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -240,7 +238,7 @@ export default function LoginScreen() {
         throw new Error('Authentication failed');
       }
     } catch (error: any) {
-      showError('Login Failed', error.message || 'Invalid email or password.');
+      showError('Login Failed', 'Invalid email or password. Please check your credentials and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -269,7 +267,7 @@ export default function LoginScreen() {
         Alert.alert('Verification Code Sent', res.message || 'Verification code has been sent to your registered contact.');
       }
     } catch (error: any) {
-      showError('Error', error.message || 'Failed to send verification code.');
+      showError('Failed to Send OTP', 'Could not send verification code. Please verify your email or phone number and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -301,7 +299,7 @@ export default function LoginScreen() {
         await handlePostLoginSuccess(res.access, res.refresh, res.user?.email || target);
       }
     } catch (error: any) {
-      showError('Verification Failed', error.message || 'Invalid or expired verification code.');
+      showError('Verification Failed', 'The OTP code is invalid or has expired. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -327,7 +325,7 @@ export default function LoginScreen() {
         await handlePostLoginSuccess(res.access, res.refresh, email.trim() || savedEmail || '');
       }
     } catch (error: any) {
-      showError('Invalid Code', error.message || 'Incorrect verification code. Try again.');
+      showError('Invalid Code', 'The authenticator code is invalid. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -373,7 +371,7 @@ export default function LoginScreen() {
     } catch (error: any) {
       showError(
         'Google Sign-In Failed',
-        error.message || 'Your Google account may not be registered in the system. Please contact HR.'
+        'Your Google account may not be registered in the system or the sign-in was cancelled. Please try again or contact HR.'
       );
     } finally {
       setIsGoogleLoading(false);
@@ -385,22 +383,16 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.backgroundImage}>
-      <Image
-        source={require('../../assets/images/login-employee.webp')}
-        style={styles.heroImage}
-        resizeMode="contain"
-      />
-      <SafeAreaView style={styles.safeContainer}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.container}
-        >
-          <View style={styles.content}>
-            {/* Logo & Header */}
-            <View style={styles.logoSection}>
-              <BrandLogo size={52} subtitle="HR Portal & Payroll Assistant" />
-            </View>
+    <SafeAreaView style={styles.safeContainer}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        <View style={styles.content}>
+          {/* Logo & Header */}
+          <View style={styles.logoSection}>
+            <BrandLogo size={52} subtitle="HR Portal & Payroll Assistant" />
+          </View>
 
           {/* Form Content Switcher */}
           {step === 'totp' ? (
@@ -668,25 +660,14 @@ export default function LoginScreen() {
         message={errorModal.message}
         onClose={() => setErrorModal({ ...errorModal, visible: false })}
       />
-      </SafeAreaView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  backgroundImage: {
-    flex: 1,
-    backgroundColor: '#0a0f1d',
-  },
-  heroImage: {
-    position: 'absolute',
-    top: 0,
-    width: '100%',
-    height: '45%',
-    opacity: 0.8,
-  },
   safeContainer: {
     flex: 1,
+    backgroundColor: '#0a0f1d',
   },
   container: {
     flex: 1,
@@ -695,7 +676,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingTop: 16,
     paddingBottom: 40,
   },
   logoSection: {
@@ -752,11 +732,11 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   formCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: 24,
+    backgroundColor: '#111827',
     padding: 24,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: '#1f2937',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -766,13 +746,13 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
-    borderRadius: 16,
+    backgroundColor: '#0f172a',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: '#1e293b',
     marginBottom: 16,
-    paddingHorizontal: 16,
-    height: 56,
+    paddingHorizontal: 12,
+    height: 52,
   },
   inputIcon: {
     marginRight: 10,
@@ -820,13 +800,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   biometricIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#8b5cf620',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
   },
   biometricTitle: {
     color: '#ffffff',
