@@ -399,7 +399,7 @@ export default function LoginScreen() {
             /* ================== TOTP Verification Screen ================== */
             <View style={styles.formCard}>
               <View style={styles.totpHeader}>
-                <Ionicons name="key" size={32} color="#8b5cf6" />
+                <Ionicons name="key" size={32} color={accentColors.primary} />
                 <Text style={styles.totpTitle}>2-Factor Verification</Text>
                 <Text style={styles.totpSubtitle}>
                   Enter the 6-digit verification code from Google Authenticator.
@@ -420,7 +420,7 @@ export default function LoginScreen() {
               </View>
 
               <TouchableOpacity
-                style={[styles.loginButton, { backgroundColor: '#8b5cf6' }]}
+                style={[styles.loginButton, { backgroundColor: accentColors.primary, shadowColor: accentColors.primary }]}
                 onPress={handleVerifyTotp}
                 disabled={isLoading}
               >
@@ -526,7 +526,7 @@ export default function LoginScreen() {
                     )}
 
                     <TouchableOpacity
-                      style={styles.loginButton}
+                      style={[styles.loginButton, { backgroundColor: accentColors.primary, shadowColor: accentColors.primary }]}
                       onPress={authType === 'password' ? handlePasswordLogin : handleSendOtp}
                       disabled={isLoading}
                     >
@@ -563,7 +563,7 @@ export default function LoginScreen() {
                     </View>
 
                     <TouchableOpacity
-                      style={styles.loginButton}
+                      style={[styles.loginButton, { backgroundColor: accentColors.primary, shadowColor: accentColors.primary }]}
                       onPress={handleVerifyOtp}
                       disabled={isLoading}
                     >
@@ -634,11 +634,11 @@ export default function LoginScreen() {
               activeOpacity={0.8}
               disabled={isLoading}
             >
-              <View style={styles.biometricIconCircle}>
+              <View style={[styles.biometricIconCircle, { backgroundColor: accentColors.primary + '20' }]}>
                 <Ionicons
                   name={isFaceId ? 'scan-outline' : 'finger-print-outline'}
                   size={22}
-                  color="#8b5cf6"
+                  color={accentColors.primary}
                 />
               </View>
               <View style={{ flex: 1 }}>
