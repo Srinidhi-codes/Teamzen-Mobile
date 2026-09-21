@@ -22,6 +22,7 @@ import * as AuthSession from 'expo-auth-session';
 import { decode as atob } from 'base-64';
 import { OnboardingStorage } from '../utils/onboardingStorage';
 import { useAppTheme } from '../context/ThemeContext';
+import { ErrorModal } from '../components/ErrorModal';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -67,6 +68,12 @@ export default function LoginScreen() {
 
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
+  const [errorModal, setErrorModal] = useState({ visible: false, title: '', message: '' });
+
+  const showError = (title: string, message: string) => {
+    setErrorModal({ visible: true, title, message });
+  };
+
   // Generic AuthSession with Expo proxy — works on all platforms without platform client IDs
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
@@ -91,7 +98,7 @@ export default function LoginScreen() {
       if (token) handleGoogleAuthToken(token);
     } else if (response.type === 'error') {
       const respAny = response as any;
-      Alert.alert('Google Sign-In Failed', respAny.error?.message || respAny.errorCode || 'Sign-in was unsuccessful.');
+      showError('Google Sign-In Failed', respAny.error?.message || respAny.errorCode || 'Sign-in was unsuccessful.');
     }
   }, [response]);
 
@@ -146,11 +153,11 @@ export default function LoginScreen() {
     try {
       const bioStatus = await AuthService.getBiometricStatus();
       if (!bioStatus.hasHardware) {
-        Alert.alert('Not Available', 'Biometric / Face authentication is not supported on this device.');
+        showError('Not Available', 'Biometric / Face authentication is not supported on this device.');
         return;
       }
       if (!bioStatus.isEnrolled) {
-        Alert.alert(
+        showError(
           'Biometrics Not Enrolled',
           'Please enroll Face ID or Fingerprint in your phone settings to use fast login.'
         );
@@ -190,13 +197,13 @@ export default function LoginScreen() {
       }
 
       // If no valid session was linked yet on this phone
-      Alert.alert(
+      showError(
         'One-Time Setup Required',
         'Please sign in with your Password once. Face ID will then be linked automatically for instant 1-tap login next time!'
       );
     } catch (error: any) {
       console.error('Biometric authentication error:', error);
-      Alert.alert('Authentication Error', error.message || 'Face ID authentication could not be completed.');
+      showError('Authentication Error', error.message || 'Face ID authentication could not be completed.');
     } finally {
       setIsLoading(false);
     }
@@ -205,7 +212,7 @@ export default function LoginScreen() {
   const handlePasswordLogin = async () => {
     const userIdentifier = (email || savedEmail || '').trim();
     if (!userIdentifier || !password) {
-      Alert.alert('Error', 'Please enter both email/username and password.');
+      showError('Error', 'Please enter both email/username and password.');
       return;
     }
 
@@ -231,7 +238,7 @@ export default function LoginScreen() {
         throw new Error('Authentication failed');
       }
     } catch (error: any) {
-      Alert.alert('Login Failed', error.message || 'Invalid email or password.');
+      showError('Login Failed', error.message || 'Invalid email or password.');
     } finally {
       setIsLoading(false);
     }
@@ -240,7 +247,7 @@ export default function LoginScreen() {
   const handleSendOtp = async () => {
     const target = (mobileOrEmail || email).trim();
     if (!target) {
-      Alert.alert('Error', 'Please enter your email address.');
+      showError('Error', 'Please enter your email address.');
       return;
     }
     setIsLoading(true);
@@ -260,7 +267,7 @@ export default function LoginScreen() {
         Alert.alert('Verification Code Sent', res.message || 'Verification code has been sent to your registered contact.');
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to send verification code.');
+      showError('Error', error.message || 'Failed to send verification code.');
     } finally {
       setIsLoading(false);
     }
@@ -268,7 +275,7 @@ export default function LoginScreen() {
 
   const handleVerifyOtp = async () => {
     if (!otpCode) {
-      Alert.alert('Error', 'Please enter the 6-digit verification code.');
+      showError('Error', 'Please enter the 6-digit verification code.');
       return;
     }
     const target = (mobileOrEmail || email).trim();
@@ -292,7 +299,7 @@ export default function LoginScreen() {
         await handlePostLoginSuccess(res.access, res.refresh, res.user?.email || target);
       }
     } catch (error: any) {
-      Alert.alert('Verification Failed', error.message || 'Invalid or expired verification code.');
+      showError('Verification Failed', error.message || 'Invalid or expired verification code.');
     } finally {
       setIsLoading(false);
     }
@@ -300,7 +307,7 @@ export default function LoginScreen() {
 
   const handleVerifyTotp = async () => {
     if (!totpCode) {
-      Alert.alert('Error', 'Please enter the authenticator code.');
+      showError('Error', 'Please enter the authenticator code.');
       return;
     }
     setIsLoading(true);
@@ -318,7 +325,7 @@ export default function LoginScreen() {
         await handlePostLoginSuccess(res.access, res.refresh, email.trim() || savedEmail || '');
       }
     } catch (error: any) {
-      Alert.alert('Invalid Code', error.message || 'Incorrect verification code. Try again.');
+      showError('Invalid Code', error.message || 'Incorrect verification code. Try again.');
     } finally {
       setIsLoading(false);
     }
@@ -362,7 +369,7 @@ export default function LoginScreen() {
         throw new Error(res.error || 'Unexpected response from server.');
       }
     } catch (error: any) {
-      Alert.alert(
+      showError(
         'Google Sign-In Failed',
         error.message || 'Your Google account may not be registered in the system. Please contact HR.'
       );
@@ -647,6 +654,12 @@ export default function LoginScreen() {
           )}
         </View>
       </KeyboardAvoidingView>
+      <ErrorModal
+        visible={errorModal.visible}
+        title={errorModal.title}
+        message={errorModal.message}
+        onClose={() => setErrorModal({ ...errorModal, visible: false })}
+      />
     </SafeAreaView>
   );
 }
