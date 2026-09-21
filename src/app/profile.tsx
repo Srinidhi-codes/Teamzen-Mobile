@@ -692,22 +692,6 @@ export default function ProfileScreen() {
             </View>
           )}
         </View>
-
-        {/* Log Out button */}
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={async () => {
-            try {
-              await signOut();
-              router.replace('/login');
-            } catch (err) {
-              console.error('Error during signOut:', err);
-            }
-          }}
-        >
-          <Ionicons name="log-out" size={20} color="#ef4444" style={{ marginRight: 8 }} />
-          <Text style={styles.logoutText}>Sign Out of System</Text>
-        </TouchableOpacity>
       </ScrollView>
 
       {/* Edit Profile Modal */}

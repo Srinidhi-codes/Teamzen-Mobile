@@ -64,17 +64,97 @@ export default function AttendanceCorrectionModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-  // Sync initial values when modal opens
+  const [activeRecordId, setActiveRecordId] = useState<string | null>(attendanceRecordId || null);
+  const [activeCheckInSelfie, setActiveCheckInSelfie] = useState<string | null>(checkInSelfieUrl || null);
+  const [activeCheckOutSelfie, setActiveCheckOutSelfie] = useState<string | null>(checkOutSelfieUrl || null);
+  const [activeDate, setActiveDate] = useState<string | null>(attendanceDate || null);
+  const [activeLoginTime, setActiveLoginTime] = useState<string | null>(currentLoginTime || null);
+  const [activeLogoutTime, setActiveLogoutTime] = useState<string | null>(currentLogoutTime || null);
+  const [activeFaceVerified, setActiveFaceVerified] = useState<boolean | null>(faceVerified ?? null);
+  const [activeMatchScore, setActiveMatchScore] = useState<number | null>(faceMatchScore ?? null);
+  const [isLoadingRecord, setIsLoadingRecord] = useState(false);
+
+  // Sync initial values and auto-fetch attendance record if not provided (e.g. from Requests screen)
   React.useEffect(() => {
     if (visible) {
       setLoginTime(currentLoginTime || '09:00:00');
       setLogoutTime(currentLogoutTime || '18:00:00');
       setReason('');
+      setActiveRecordId(attendanceRecordId || null);
+      setActiveCheckInSelfie(checkInSelfieUrl || null);
+      setActiveCheckOutSelfie(checkOutSelfieUrl || null);
+      setActiveDate(attendanceDate || null);
+      setActiveLoginTime(currentLoginTime || null);
+      setActiveLogoutTime(currentLogoutTime || null);
+      setActiveFaceVerified(faceVerified ?? null);
+      setActiveMatchScore(faceMatchScore ?? null);
+
+      if (!attendanceRecordId) {
+        setIsLoadingRecord(true);
+        graphqlRequest<{
+          myAttendance?: Array<{
+            id: string;
+            attendanceDate: string;
+            loginTime?: string | null;
+            logoutTime?: string | null;
+            checkInSelfieUrl?: string | null;
+            checkOutSelfieUrl?: string | null;
+            faceMatchScore?: number | null;
+            faceVerified?: boolean | null;
+          }>;
+        }>(`
+          query AutoFetchAttendanceForCorrection {
+            myAttendance {
+              id
+              attendanceDate
+              loginTime
+              logoutTime
+              checkInSelfieUrl
+              checkOutSelfieUrl
+              faceMatchScore
+              faceVerified
+            }
+          }
+        `).then((res) => {
+          const recs = res?.myAttendance || [];
+          if (recs.length > 0) {
+            const latest = recs[0];
+            setActiveRecordId(latest.id);
+            setActiveDate(latest.attendanceDate);
+            if (latest.loginTime) {
+              setLoginTime(latest.loginTime);
+              setActiveLoginTime(latest.loginTime);
+            }
+            if (latest.logoutTime) {
+              setLogoutTime(latest.logoutTime);
+              setActiveLogoutTime(latest.logoutTime);
+            }
+            if (latest.checkInSelfieUrl) setActiveCheckInSelfie(latest.checkInSelfieUrl);
+            if (latest.checkOutSelfieUrl) setActiveCheckOutSelfie(latest.checkOutSelfieUrl);
+            if (latest.faceVerified != null) setActiveFaceVerified(latest.faceVerified);
+            if (latest.faceMatchScore != null) setActiveMatchScore(latest.faceMatchScore);
+          }
+        }).catch((err) => {
+          console.warn('Auto-fetch attendance record error:', err);
+        }).finally(() => {
+          setIsLoadingRecord(false);
+        });
+      }
     }
-  }, [visible, currentLoginTime, currentLogoutTime]);
+  }, [
+    visible,
+    attendanceRecordId,
+    currentLoginTime,
+    currentLogoutTime,
+    checkInSelfieUrl,
+    checkOutSelfieUrl,
+    attendanceDate,
+    faceVerified,
+    faceMatchScore,
+  ]);
 
   const handleSubmit = async () => {
-    if (!attendanceRecordId) {
+    if (!activeRecordId) {
       Alert.alert('Error', 'No attendance record found for today to correct. Please punch in first.');
       return;
     }
@@ -88,7 +168,7 @@ export default function AttendanceCorrectionModal({
     try {
       await graphqlRequest(REQUEST_CORRECTION_MUTATION, {
         input: {
-          attendanceRecordId,
+          attendanceRecordId: activeRecordId,
           correctedLoginTime: loginTime,
           correctedLogoutTime: logoutTime,
           reason: reason.trim(),
@@ -133,8 +213,8 @@ export default function AttendanceCorrectionModal({
               <View>
                 <Text style={styles.title}>Request Correction</Text>
                 <Text style={styles.subtitle}>
-                  {attendanceDate
-                    ? `Date: ${moment(attendanceDate).isValid() ? moment(attendanceDate).format('DD/MM/YYYY') : attendanceDate}`
+                  {activeDate
+                    ? `Date: ${moment(activeDate).isValid() ? moment(activeDate).format('DD/MM/YYYY') : activeDate}`
                     : "Today's Attendance"}
                 </Text>
               </View>
@@ -154,49 +234,49 @@ export default function AttendanceCorrectionModal({
               <View style={styles.recordedRow}>
                 <View style={styles.recordedCol}>
                   <Text style={styles.recordedKey}>Check In</Text>
-                  <Text style={styles.recordedVal}>{currentLoginTime || '—'}</Text>
+                  <Text style={styles.recordedVal}>{activeLoginTime || '—'}</Text>
                 </View>
                 <View style={styles.recordedDivider} />
                 <View style={styles.recordedCol}>
                   <Text style={styles.recordedKey}>Check Out</Text>
-                  <Text style={styles.recordedVal}>{currentLogoutTime || '—'}</Text>
+                  <Text style={styles.recordedVal}>{activeLogoutTime || '—'}</Text>
                 </View>
               </View>
             </View>
 
             {/* Captured Verification Selfies (Web-portal parity) */}
-            {(checkInSelfieUrl || checkOutSelfieUrl) ? (
+            {(activeCheckInSelfie || activeCheckOutSelfie) ? (
               <View style={styles.selfieCardBox}>
                 <View style={styles.selfieHeaderRow}>
-                  <Ionicons name="camera-outline" size={14} color={accentColors.primary} />
+                  <Ionicons name="camera" size={14} color={accentColors.primary} />
                   <Text style={[styles.selfieHeaderTitle, { color: colors.textSecondary }]}>Captured Attendance Verification</Text>
-                  {faceVerified && (
+                  {activeFaceVerified && (
                     <View style={styles.verifiedTag}>
                       <Ionicons name="checkmark-circle" size={11} color="#10b981" />
                       <Text style={styles.verifiedTagText}>
-                        Face Verified{faceMatchScore ? ` · ${Number(faceMatchScore).toFixed(2)}` : ''}
+                        Face Verified{activeMatchScore ? ` · ${Number(activeMatchScore).toFixed(2)}` : ''}
                       </Text>
                     </View>
                   )}
                 </View>
                 <View style={styles.selfieCardsRow}>
-                  {checkInSelfieUrl ? (
+                  {activeCheckInSelfie ? (
                     <TouchableOpacity
                       style={styles.selfieThumbCard}
-                      onPress={() => setPreviewImage(getAbsoluteUrl(checkInSelfieUrl))}
+                      onPress={() => setPreviewImage(getAbsoluteUrl(activeCheckInSelfie))}
                       activeOpacity={0.8}
                     >
-                      <Image source={{ uri: getAbsoluteUrl(checkInSelfieUrl)! }} style={styles.selfieThumbImg} />
+                      <Image source={{ uri: getAbsoluteUrl(activeCheckInSelfie)! }} style={styles.selfieThumbImg} />
                       <Text style={[styles.selfieThumbLabel, { color: colors.textSecondary }]}>Check In</Text>
                     </TouchableOpacity>
                   ) : null}
-                  {checkOutSelfieUrl ? (
+                  {activeCheckOutSelfie ? (
                     <TouchableOpacity
                       style={styles.selfieThumbCard}
-                      onPress={() => setPreviewImage(getAbsoluteUrl(checkOutSelfieUrl))}
+                      onPress={() => setPreviewImage(getAbsoluteUrl(activeCheckOutSelfie))}
                       activeOpacity={0.8}
                     >
-                      <Image source={{ uri: getAbsoluteUrl(checkOutSelfieUrl)! }} style={styles.selfieThumbImg} />
+                      <Image source={{ uri: getAbsoluteUrl(activeCheckOutSelfie)! }} style={styles.selfieThumbImg} />
                       <Text style={[styles.selfieThumbLabel, { color: colors.textSecondary }]}>Check Out</Text>
                     </TouchableOpacity>
                   ) : null}

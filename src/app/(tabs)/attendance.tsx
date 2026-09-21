@@ -158,6 +158,8 @@ export default function AttendanceScreen() {
   // Layout & Navigation State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
+  const [todayCheckInSelfie, setTodayCheckInSelfie] = useState<string | null>(null);
+  const [todayCheckOutSelfie, setTodayCheckOutSelfie] = useState<string | null>(null);
 
   // Data & Telemetry State
   const [setupData, setSetupData] = useState<AttendanceSetupData | null>(cachedSetupData);
@@ -502,6 +504,7 @@ export default function AttendanceScreen() {
             faceDescriptor: result.descriptor,
           },
         });
+        setTodayCheckInSelfie(result.photoUri);
         if (data?.checkIn?.id) {
           await uploadSelfie(String(data.checkIn.id), 'check_in', result.photoUri, result.imageBase64);
         }
@@ -517,6 +520,7 @@ export default function AttendanceScreen() {
             faceDescriptor: result.descriptor,
           },
         });
+        setTodayCheckOutSelfie(result.photoUri);
         if (data?.checkOut?.id) {
           await uploadSelfie(String(data.checkOut.id), 'check_out', result.photoUri, result.imageBase64);
         }
@@ -606,8 +610,8 @@ export default function AttendanceScreen() {
         currentLoginTime={todayRecord?.loginTime}
         currentLogoutTime={todayRecord?.logoutTime}
         attendanceDate={todayRecord?.attendanceDate || todayDateLabel}
-        checkInSelfieUrl={todayRecord?.checkInSelfieUrl}
-        checkOutSelfieUrl={todayRecord?.checkOutSelfieUrl}
+        checkInSelfieUrl={todayRecord?.checkInSelfieUrl || todayCheckInSelfie}
+        checkOutSelfieUrl={todayRecord?.checkOutSelfieUrl || todayCheckOutSelfie}
         faceMatchScore={todayRecord?.faceMatchScore}
         faceVerified={todayRecord?.faceVerified}
         onClose={() => setIsCorrectionModalOpen(false)}
@@ -629,16 +633,23 @@ export default function AttendanceScreen() {
           }
         }}
         showNotifications={false}
-        showMenu={true}
+        showMenu={false}
         onMenuPress={() => setIsSidebarOpen(true)}
         rightElement={
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <TouchableOpacity
               style={styles.correctionHeaderBtn}
+              onPress={() => setIsCorrectionModalOpen(true)}
+            >
+              <Ionicons name="create-outline" size={14} color={accentColors.primary} />
+              <Text style={styles.correctionBtnText}>Correction</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.correctionHeaderBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: colors.border }]}
               onPress={() => router.push('/attendance-requests')}
             >
-              <Ionicons name="document-text-outline" size={15} color={accentColors.primary} />
-              <Text style={styles.correctionBtnText}>Requests</Text>
+              <Ionicons name="document-text-outline" size={14} color={colors.textSecondary} />
+              <Text style={[styles.correctionBtnText, { color: colors.textSecondary }]}>Requests</Text>
             </TouchableOpacity>
           </View>
         }
@@ -1034,6 +1045,17 @@ export default function AttendanceScreen() {
                   : '0.0h'}
               </Text>
             </View>
+
+            {todayRecord && (
+              <TouchableOpacity
+                style={styles.requestCorrectionCardBtn}
+                onPress={() => setIsCorrectionModalOpen(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="create-outline" size={16} color={accentColors.primary} />
+                <Text style={styles.requestCorrectionCardBtnText}>Request Attendance Correction</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -1180,6 +1202,23 @@ const getStyles = (colors: any, accentColors: any, isDark: boolean) =>
     },
     correctionBtnText: {
       fontSize: 12,
+      fontWeight: '700',
+      color: accentColors.primary,
+    },
+    requestCorrectionCardBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: accentColors.light,
+      paddingVertical: 12,
+      borderRadius: 12,
+      marginTop: 14,
+      borderWidth: 1,
+      borderColor: accentColors.primary + '35',
+    },
+    requestCorrectionCardBtnText: {
+      fontSize: 13,
       fontWeight: '700',
       color: accentColors.primary,
     },

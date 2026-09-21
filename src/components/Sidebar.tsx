@@ -231,12 +231,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             unreadCount
           )}
 
-          {!hasSeenAppTour && (
-            <>
-              <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>App Guide</Text>
-              {renderNavItem('compass-outline', 'App Tour', '/onboarding', ['/onboarding'])}
-            </>
-          )}
+          <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>App Guide</Text>
+          {renderNavItem('compass-outline', 'App Tour', '/onboarding', ['/onboarding'])}
 
           <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Corporate Portals</Text>
           {renderNavItem('book-outline', 'Policies & Handbook', '/policies', ['/policies'])}

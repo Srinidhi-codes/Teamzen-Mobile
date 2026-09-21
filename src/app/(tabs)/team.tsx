@@ -116,11 +116,18 @@ export default function TeamScreen() {
     fetchTeamData();
   };
 
-  const renderMember = (member: any, roleLabel: string) => {
+  const renderMember = (member: any, roleLabel: string, isCurrent: boolean = false) => {
     const avatarUrl = getAbsoluteUrl(member.profilePictureUrl);
     
     return (
-      <View key={member.id} style={styles.memberCard}>
+      <View key={member.id} style={[
+        styles.memberCard,
+        isCurrent && {
+          borderColor: accentColors.primary,
+          borderWidth: 2,
+          backgroundColor: isDark ? 'rgba(99, 102, 241, 0.12)' : 'rgba(99, 102, 241, 0.06)',
+        }
+      ]}>
         {avatarUrl ? (
           <TouchableOpacity
             onPress={() => setPreviewImage({
@@ -134,18 +141,34 @@ export default function TeamScreen() {
             <Image source={{ uri: avatarUrl }} style={styles.memberAvatar} />
           </TouchableOpacity>
         ) : (
-          <View style={[styles.memberAvatarFallback, { backgroundColor: accentColors.primary + '15' }]}>
-            <Text style={[styles.memberInitials, { color: accentColors.primary }]}>
+          <View style={[styles.memberAvatarFallback, { backgroundColor: (isCurrent ? accentColors.primary : '#8b5cf6') + '15' }]}>
+            <Text style={[styles.memberInitials, { color: isCurrent ? accentColors.primary : '#8b5cf6' }]}>
               {member.firstName?.[0]}{member.lastName?.[0]}
             </Text>
           </View>
         )}
         <View style={styles.memberInfo}>
-          <Text style={styles.memberName}>{member.firstName} {member.lastName}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={styles.memberName}>{member.firstName} {member.lastName}</Text>
+            {isCurrent && (
+              <View style={[styles.currentBadge, { backgroundColor: accentColors.primary }]}>
+                <Text style={styles.currentBadgeText}>YOU</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.memberRole}>{member.designation?.name || 'Employee'}</Text>
+          {member.department?.name && (
+            <Text style={styles.memberDept}>{member.department.name}</Text>
+          )}
         </View>
-        <View style={styles.roleBadge}>
-          <Text style={styles.roleBadgeText}>{roleLabel}</Text>
+        <View style={[
+          styles.roleBadge,
+          isCurrent && { backgroundColor: accentColors.light }
+        ]}>
+          <Text style={[
+            styles.roleBadgeText,
+            isCurrent && { color: accentColors.primary, fontWeight: '700' }
+          ]}>{roleLabel}</Text>
         </View>
       </View>
     );
@@ -203,145 +226,76 @@ export default function TeamScreen() {
     );
   };
 
-  const renderOrgNode = (member: any, role: string, isCurrent: boolean = false) => {
-    const avatarUrl = getAbsoluteUrl(member.profilePictureUrl);
-    const roleColor = isCurrent ? accentColors.primary : role === 'Manager' ? '#8b5cf6' : role === 'Peer' ? '#3b82f6' : '#10b981';
-    
-    return (
-      <View key={member.id} style={[
-        styles.flowNodeCard,
-        isCurrent && {
-          borderColor: accentColors.primary,
-          borderWidth: 2,
-          backgroundColor: isDark ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.08)',
-          shadowColor: accentColors.primary,
-          shadowOpacity: 0.3,
-          shadowRadius: 8,
-          elevation: 5,
-        }
-      ]}>
-        <View style={styles.flowNodeHeader}>
-          {avatarUrl ? (
-            <TouchableOpacity
-              onPress={() => setPreviewImage({
-                url: avatarUrl,
-                name: `${member.firstName} ${member.lastName}`,
-                subtitle: member.designation?.name || role,
-              })}
-              activeOpacity={0.8}
-            >
-              <Image source={{ uri: avatarUrl }} style={[styles.flowNodeAvatar, { borderColor: roleColor }]} />
-            </TouchableOpacity>
-          ) : (
-            <View style={[styles.flowNodeAvatarFallback, { backgroundColor: roleColor + '20', borderColor: roleColor }]}>
-              <Text style={[styles.flowNodeInitials, { color: roleColor }]}>
-                {member.firstName?.[0]}{member.lastName?.[0]}
-              </Text>
-            </View>
-          )}
-          <View style={[styles.flowNodeRoleBadge, { backgroundColor: roleColor + '20' }]}>
-            <Text style={[styles.flowNodeRoleText, { color: roleColor }]}>
-              {isCurrent ? 'YOU' : role.toUpperCase()}
-            </Text>
-          </View>
-        </View>
-
-        <Text style={styles.flowNodeName} numberOfLines={1}>{member.firstName} {member.lastName}</Text>
-        <Text style={styles.flowNodeRole} numberOfLines={1}>{member.designation?.name || 'Team Member'}</Text>
-        {member.department?.name && (
-          <Text style={styles.flowNodeDept} numberOfLines={1}>{member.department.name}</Text>
-        )}
-      </View>
-    );
-  };
-
   const renderOrgChart = () => {
     const manager = data?.teamHierarchy?.manager;
     const currentUser = data?.teamHierarchy?.user;
     const peers = data?.teamHierarchy?.peers || [];
     const subordinates = data?.teamHierarchy?.subordinates || [];
 
-    const cluster2Members = [
-      ...(currentUser ? [{ ...currentUser, isCurrent: true, role: 'You' }] : []),
-      ...peers.map((p: any) => ({ ...p, isCurrent: false, role: 'Peer' })),
-    ];
-
     return (
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.orgChartScroll}>
-        <View style={styles.orgChartWrapper}>
-          
-          {/* TIER 1: Manager Cluster */}
-          {manager && (
-            <View style={styles.orgTier}>
-              <View style={styles.clusterTitleBadge}>
-                <Ionicons name="shield-checkmark" size={12} color="#8b5cf6" />
-                <Text style={styles.clusterTitleText}>LEADERSHIP / MANAGER</Text>
-              </View>
-              {renderOrgNode(manager, 'Manager', false)}
-              <View style={styles.connectorStem} />
+      <View style={styles.orgVerticalContainer}>
+        {/* Manager (Top Level) */}
+        {manager && (
+          <View style={styles.orgVerticalSection}>
+            <View style={styles.orgSectionHeaderRow}>
+              <Ionicons name="shield-checkmark" size={14} color="#8b5cf6" />
+              <Text style={[styles.orgSectionTitle, { color: '#8b5cf6' }]}>REPORTS TO (MANAGER)</Text>
             </View>
-          )}
-
-          {/* Bus Bar line connecting Tier 1 to Tier 2 */}
-          {manager && cluster2Members.length > 0 && (
-            <View style={styles.busBarContainer}>
-              <View style={[styles.busBarLine, { width: Math.max(60, (cluster2Members.length - 1) * 190) }]} />
+            {renderMember(manager, 'Manager')}
+            <View style={styles.verticalConnectorBox}>
+              <View style={styles.verticalLine} />
+              <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
             </View>
-          )}
+          </View>
+        )}
 
-          {/* TIER 2: Peers & Current User Cluster */}
-          {cluster2Members.length > 0 && (
-            <View style={styles.orgTier}>
-              <View style={styles.clusterTitleBadge}>
-                <Ionicons name="people" size={12} color="#3b82f6" />
-                <Text style={styles.clusterTitleText}>YOUR TEAM & PEERS</Text>
-              </View>
-
-              <View style={styles.clusterRow}>
-                {cluster2Members.map((member: any) => (
-                  <View key={member.id} style={styles.clusterNodeWrapper}>
-                    {manager && <View style={styles.connectorDrop} />}
-                    {renderOrgNode(member, member.role, member.isCurrent)}
-                    {member.isCurrent && subordinates.length > 0 && (
-                      <View style={[styles.connectorStem, { backgroundColor: accentColors.primary }]} />
-                    )}
-                  </View>
-                ))}
-              </View>
+        {/* Current Position ("YOU") */}
+        {currentUser && (
+          <View style={styles.orgVerticalSection}>
+            <View style={styles.orgSectionHeaderRow}>
+              <Ionicons name="person-circle" size={14} color={accentColors.primary} />
+              <Text style={[styles.orgSectionTitle, { color: accentColors.primary }]}>CURRENT POSITION (YOU)</Text>
             </View>
-          )}
-
-          {/* Bus Bar line connecting "You" to Direct Reports */}
-          {subordinates.length > 0 && (
-            <View style={styles.busBarContainer}>
-              <View style={[styles.busBarLine, { width: Math.max(60, (subordinates.length - 1) * 190), backgroundColor: accentColors.primary }]} />
-            </View>
-          )}
-
-          {/* TIER 3: Direct Reports Cluster */}
-          {subordinates.length > 0 && (
-            <View style={styles.orgTier}>
-              <View style={[styles.clusterTitleBadge, { backgroundColor: '#10b98115' }]}>
-                <Ionicons name="git-merge-outline" size={12} color="#10b981" />
-                <Text style={[styles.clusterTitleText, { color: '#10b981' }]}>DIRECT REPORTS</Text>
+            {renderMember(currentUser, 'You', true)}
+            {subordinates.length > 0 && (
+              <View style={styles.verticalConnectorBox}>
+                <View style={[styles.verticalLine, { backgroundColor: accentColors.primary }]} />
+                <Ionicons name="chevron-down" size={16} color={accentColors.primary} />
               </View>
+            )}
+          </View>
+        )}
 
-              <View style={styles.clusterRow}>
-                {subordinates.map((sub: any) => (
-                  <View key={sub.id} style={styles.clusterNodeWrapper}>
-                    <View style={[styles.connectorDrop, { backgroundColor: accentColors.primary }]} />
-                    {renderOrgNode(sub, 'Report', false)}
-                  </View>
-                ))}
-              </View>
+        {/* Direct Reports */}
+        {subordinates.length > 0 && (
+          <View style={styles.orgVerticalSection}>
+            <View style={styles.orgSectionHeaderRow}>
+              <Ionicons name="git-merge-outline" size={14} color="#10b981" />
+              <Text style={[styles.orgSectionTitle, { color: '#10b981' }]}>DIRECT REPORTS ({subordinates.length})</Text>
             </View>
-          )}
+            <View style={styles.verticalMemberList}>
+              {subordinates.map((sub: any) => renderMember(sub, 'Direct Report'))}
+            </View>
+          </View>
+        )}
 
-          {!manager && cluster2Members.length === 0 && subordinates.length === 0 && (
-            <Text style={styles.emptyText}>No organization structure available.</Text>
-          )}
-        </View>
-      </ScrollView>
+        {/* Team Peers */}
+        {peers.length > 0 && (
+          <View style={[styles.orgVerticalSection, { marginTop: 16 }]}>
+            <View style={styles.orgSectionHeaderRow}>
+              <Ionicons name="people-outline" size={14} color="#3b82f6" />
+              <Text style={[styles.orgSectionTitle, { color: '#3b82f6' }]}>TEAM PEERS ({peers.length})</Text>
+            </View>
+            <View style={styles.verticalMemberList}>
+              {peers.map((peer: any) => renderMember(peer, 'Peer'))}
+            </View>
+          </View>
+        )}
+
+        {!manager && !currentUser && subordinates.length === 0 && peers.length === 0 && (
+          <Text style={styles.emptyText}>No organization structure available.</Text>
+        )}
+      </View>
     );
   };
 
@@ -662,135 +616,53 @@ const getStyles = (colors: any, accentColors: any, isDark: boolean) => StyleShee
     fontSize: 12,
     fontWeight: '600',
   },
-  orgChartScroll: {
-    paddingVertical: 16,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    minWidth: '100%',
+  orgVerticalContainer: {
+    paddingVertical: 12,
+    gap: 8,
   },
-  orgChartWrapper: {
-    alignItems: 'center',
-    width: '100%',
+  orgVerticalSection: {
+    marginBottom: 8,
   },
-  orgTier: {
-    alignItems: 'center',
-    marginVertical: 4,
-  },
-  clusterTitleBadge: {
+  orgSectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
-    backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-    marginBottom: 12,
+    marginBottom: 8,
+    paddingHorizontal: 4,
   },
-  clusterTitleText: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    color: colors.textSecondary,
-  },
-  clusterRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    gap: 16,
-  },
-  clusterNodeWrapper: {
-    alignItems: 'center',
-  },
-  flowNodeCard: {
-    width: 175,
-    backgroundColor: colors.backgroundCard,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  flowNodeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 10,
-  },
-  flowNodeAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-  },
-  flowNodeAvatarFallback: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  flowNodeInitials: {
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  flowNodeRoleBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  flowNodeRoleText: {
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  flowNodeName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.text,
-    textAlign: 'center',
-    width: '100%',
-  },
-  flowNodeRole: {
+  orgSectionTitle: {
     fontSize: 11,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 2,
-    width: '100%',
+    fontWeight: '800',
+    letterSpacing: 0.6,
   },
-  flowNodeDept: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    opacity: 0.8,
-    textAlign: 'center',
-    marginTop: 2,
-    width: '100%',
+  verticalConnectorBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 4,
   },
-  connectorStem: {
+  verticalLine: {
     width: 2,
-    height: 22,
-    backgroundColor: colors.border,
-  },
-  connectorDrop: {
-    width: 2,
-    height: 16,
+    height: 18,
     backgroundColor: colors.border,
     marginBottom: 2,
   },
-  busBarContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 2,
+  verticalMemberList: {
+    gap: 10,
   },
-  busBarLine: {
-    height: 2,
-    backgroundColor: colors.border,
+  currentBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  currentBadgeText: {
+    color: '#ffffff',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  memberDept: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 1,
   },
   attendanceContainer: {
     gap: 12,
