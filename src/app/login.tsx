@@ -8,6 +8,7 @@ import {
   Platform,
   ActivityIndicator,
   Image,
+  ImageBackground,
   View,
   Alert,
 } from 'react-native';
@@ -384,25 +385,22 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeContainer}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}
-      >
-        <View style={styles.content}>
-          <View style={styles.heroImageContainer}>
-            <Image
-              source={require('../../assets/images/login-employee.webp')}
-              style={styles.heroImage}
-              resizeMode="cover"
-            />
-            <View style={styles.heroImageOverlay} />
-          </View>
-
-          {/* Logo & Header */}
-          <View style={styles.logoSection}>
-            <BrandLogo size={52} subtitle="HR Portal & Payroll Assistant" />
-          </View>
+    <ImageBackground
+      source={require('../../assets/images/login-employee.webp')}
+      style={styles.backgroundImage}
+      resizeMode="cover"
+    >
+      <View style={styles.backgroundOverlay} />
+      <SafeAreaView style={styles.safeContainer}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.container}
+        >
+          <View style={styles.content}>
+            {/* Logo & Header */}
+            <View style={styles.logoSection}>
+              <BrandLogo size={52} subtitle="HR Portal & Payroll Assistant" />
+            </View>
 
           {/* Form Content Switcher */}
           {step === 'totp' ? (
@@ -670,33 +668,25 @@ export default function LoginScreen() {
         message={errorModal.message}
         onClose={() => setErrorModal({ ...errorModal, visible: false })}
       />
-    </SafeAreaView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  safeContainer: {
+  backgroundImage: {
     flex: 1,
-    backgroundColor: '#0a0f1d',
-  },
-  container: {
-    flex: 1,
-  },
-  heroImageContainer: {
-    height: 180,
-    width: '100%',
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: 24,
-    position: 'relative',
-  },
-  heroImage: {
     width: '100%',
     height: '100%',
   },
-  heroImageOverlay: {
+  backgroundOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.1)',
+    backgroundColor: 'rgba(10, 15, 29, 0.75)', // Dark overlay for contrast
+  },
+  safeContainer: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
   },
   content: {
     flex: 1,
@@ -759,11 +749,11 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   formCard: {
-    backgroundColor: '#111827',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 24,
     padding: 24,
-    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#1f2937',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -773,13 +763,13 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#1e293b',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     marginBottom: 16,
-    paddingHorizontal: 12,
-    height: 52,
+    paddingHorizontal: 16,
+    height: 56,
   },
   inputIcon: {
     marginRight: 10,
@@ -827,12 +817,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   biometricIconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#8b5cf620',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 16,
   },
   biometricTitle: {
     color: '#ffffff',
