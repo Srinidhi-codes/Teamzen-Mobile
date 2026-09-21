@@ -385,12 +385,12 @@ export default function LoginScreen() {
   };
 
   return (
-    <ImageBackground
-      source={require('../../assets/images/login-employee.webp')}
-      style={styles.backgroundImage}
-      resizeMode="cover"
-    >
-      <View style={styles.backgroundOverlay} />
+    <View style={styles.backgroundImage}>
+      <Image
+        source={require('../../assets/images/login-employee.webp')}
+        style={styles.heroImage}
+        resizeMode="contain"
+      />
       <SafeAreaView style={styles.safeContainer}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -669,19 +669,21 @@ export default function LoginScreen() {
         onClose={() => setErrorModal({ ...errorModal, visible: false })}
       />
       </SafeAreaView>
-    </ImageBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   backgroundImage: {
     flex: 1,
-    width: '100%',
-    height: '100%',
+    backgroundColor: '#0a0f1d',
   },
-  backgroundOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(10, 15, 29, 0.75)', // Dark overlay for contrast
+  heroImage: {
+    position: 'absolute',
+    top: 0,
+    width: '100%',
+    height: '45%',
+    opacity: 0.8,
   },
   safeContainer: {
     flex: 1,
@@ -750,11 +752,11 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   formCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -764,10 +766,10 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
     marginBottom: 16,
     paddingHorizontal: 16,
     height: 56,
