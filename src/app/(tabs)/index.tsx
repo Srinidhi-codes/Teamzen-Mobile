@@ -1760,7 +1760,6 @@ const getStyles = (colors: any, accentColors: any, isDark: boolean) =>
     },
     floatingAiBtn: {
       position: 'absolute',
-      left: 20,
       right: 20,
       borderRadius: 28,
       shadowColor: '#7dd3fc',
@@ -1773,7 +1772,8 @@ const getStyles = (colors: any, accentColors: any, isDark: boolean) =>
     floatingAiGradient: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
+      justifyContent: 'center',
+      gap: 12,
       paddingVertical: 12,
       paddingHorizontal: 20,
       borderRadius: 28,
@@ -1781,8 +1781,8 @@ const getStyles = (colors: any, accentColors: any, isDark: boolean) =>
       borderColor: 'rgba(255, 255, 255, 0.5)',
     },
     floatingAiIconBg: {
-      width: 28,
-      height: 28,
+      width: 18,
+      height: 18,
       borderRadius: 14,
       backgroundColor: 'rgba(255, 255, 255, 0.7)',
       alignItems: 'center',
