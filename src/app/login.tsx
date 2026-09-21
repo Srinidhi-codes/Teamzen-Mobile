@@ -668,6 +668,7 @@ export default function LoginScreen() {
         message={errorModal.message}
         onClose={() => setErrorModal({ ...errorModal, visible: false })}
       />
+      </SafeAreaView>
     </ImageBackground>
   );
 }
