@@ -1130,18 +1130,22 @@ export default function DashboardScreen() {
         accessibilityLabel="Ask AI Assistant"
       >
         <LinearGradient
-          colors={['#0d9488', '#0f766e', '#115e59']}
+          colors={['#e0f2fe', '#bae6fd']}
           style={styles.floatingAiGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          <View style={styles.floatingAiIconBg}>
-            <Image
-              source={require('../../../assets/images/assistant-mark.webp')}
-              style={{ width: 18, height: 18, resizeMode: 'contain', borderRadius: 4 }}
-              fadeDuration={0}
-            />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={styles.floatingAiIconBg}>
+              <Image
+                source={require('../../../assets/images/assistant-mark.webp')}
+                style={{ width: 18, height: 18, resizeMode: 'contain', borderRadius: 4 }}
+                fadeDuration={0}
+              />
+            </View>
+            <Text style={styles.floatingAiText}>Ask AI Assistant</Text>
           </View>
+          <View style={styles.floatingAiPulseDot} />
         </LinearGradient>
       </TouchableOpacity>
 
@@ -1756,9 +1760,10 @@ const getStyles = (colors: any, accentColors: any, isDark: boolean) =>
     },
     floatingAiBtn: {
       position: 'absolute',
+      left: 20,
       right: 20,
       borderRadius: 28,
-      shadowColor: '#0d9488',
+      shadowColor: '#7dd3fc',
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.4,
       shadowRadius: 10,
@@ -1768,31 +1773,31 @@ const getStyles = (colors: any, accentColors: any, isDark: boolean) =>
     floatingAiGradient: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 10,
-      paddingHorizontal: 16,
+      justifyContent: 'space-between',
+      paddingVertical: 12,
+      paddingHorizontal: 20,
       borderRadius: 28,
-      gap: 8,
       borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.25)',
+      borderColor: 'rgba(255, 255, 255, 0.5)',
     },
     floatingAiIconBg: {
       width: 28,
       height: 28,
       borderRadius: 14,
-      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      backgroundColor: 'rgba(255, 255, 255, 0.7)',
       alignItems: 'center',
       justifyContent: 'center',
     },
     floatingAiText: {
-      color: '#ffffff',
-      fontSize: 14,
+      color: '#0369a1',
+      fontSize: 15,
       fontWeight: '700',
       letterSpacing: 0.2,
     },
     floatingAiPulseDot: {
-      width: 7,
-      height: 7,
-      borderRadius: 3.5,
-      backgroundColor: '#34d399',
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: '#0284c7',
     },
   });
