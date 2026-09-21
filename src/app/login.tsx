@@ -48,7 +48,7 @@ const GOOGLE_REDIRECT_URI = AuthSession.makeRedirectUri({ useProxy: true } as an
 export default function LoginScreen() {
   const { signIn } = useAuth();
   const router = useRouter();
-  const { setOrgAccent } = useAppTheme();
+  const { setOrgAccent, accentColors } = useAppTheme();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
