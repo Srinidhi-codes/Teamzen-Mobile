@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Linking,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -68,7 +69,7 @@ export default function PoliciesScreen() {
   const handleOpenPolicy = async (policy: Policy) => {
     const fileUrl = policy.file_url || policy.file;
     if (!fileUrl) {
-      alert('No file available for this policy');
+      Alert.alert('Notice', 'No file available for this policy.');
       return;
     }
     
