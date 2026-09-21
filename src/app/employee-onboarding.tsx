@@ -17,9 +17,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import { FileSystemUploadType } from 'expo-file-system/legacy';
 import { useAppTheme } from '../context/ThemeContext';
 import ScreenHeader from '../components/ScreenHeader';
 import { graphqlRequest, authenticatedFetch, API_URL } from '../services/api';
+import { AuthService } from '../services/auth';
 
 // =====================================================
 // GRAPHQL QUERIES & MUTATIONS
@@ -319,27 +322,40 @@ export default function EmployeeOnboardingScreen() {
 
       setActionLoading(true);
 
-      const formData = new FormData();
-      formData.append('file', {
-        uri: asset.uri,
-        name: filename,
-        type: asset.mimeType || 'image/jpeg',
-      } as any);
-      formData.append('category', selectedCategory);
-      formData.append('title', filename);
-      if (onboarding?.id) {
-        formData.append('onboarding_id', onboarding.id);
+      const uploadUrl = `${API_URL}/api/onboarding/documents/upload/`;
+      const token = await AuthService.getAccessToken();
+
+      const headers: Record<string, string> = {
+        Accept: 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const uploadUrl = `${API_URL}/api/onboarding/documents/upload/`;
-      const response = await authenticatedFetch(uploadUrl, {
-        method: 'POST',
-        body: formData,
+      const parameters: Record<string, string> = {
+        category: selectedCategory,
+        title: filename,
+      };
+      if (onboarding?.id) {
+        parameters['onboarding_id'] = onboarding.id;
+      }
+
+      const response = await FileSystem.uploadAsync(uploadUrl, asset.uri, {
+        httpMethod: 'POST',
+        uploadType: FileSystemUploadType.MULTIPART,
+        fieldName: 'file',
+        parameters,
+        headers,
+        mimeType: asset.mimeType || 'image/jpeg',
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Upload failed');
+      if (response.status < 200 || response.status >= 300) {
+        try {
+          const json = JSON.parse(response.body);
+          throw new Error(json.error || json.message || 'Upload failed');
+        } catch (e: any) {
+          throw new Error(e.message || response.body || 'Upload failed');
+        }
       }
 
       Alert.alert('Uploaded', 'Your document has been submitted for HR verification.');

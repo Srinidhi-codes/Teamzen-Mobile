@@ -102,7 +102,7 @@ export default function PayrollScreen() {
   const [payslips, setPayslips] = useState<Payslip[]>(cachedPayrollData || []);
   const [isLoading, setIsLoading] = useState(!cachedPayrollData);
   const [refreshing, setRefreshing] = useState(false);
-  const [showSalaries, setShowSalaries] = useState(true);
+  const [showSalaries, setShowSalaries] = useState(false);
   const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null);
 
   const fetchPayrollData = async () => {

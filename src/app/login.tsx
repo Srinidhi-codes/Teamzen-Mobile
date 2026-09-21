@@ -238,7 +238,7 @@ export default function LoginScreen() {
         throw new Error('Authentication failed');
       }
     } catch (error: any) {
-      showError('Login Failed', 'Invalid email or password. Please check your credentials and try again.');
+      showError('Login Failed', error.message || 'Invalid email or password. Please check your credentials and try again.');
     } finally {
       setIsLoading(false);
     }

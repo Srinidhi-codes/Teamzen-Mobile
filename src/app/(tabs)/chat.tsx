@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
-import { API_URL, authenticatedFetch } from '../../services/api';
+import { API_URL, authenticatedFetch, graphqlRequest } from '../../services/api';
 import { LocationService } from '../../services/location';
 import { parseMessage, MessagePart } from '../../services/messageParser';
 import { Ionicons } from '@expo/vector-icons';
@@ -117,6 +117,12 @@ const getInsightTheme = (type?: string, topic?: string) => {
   };
 };
 
+function getAbsoluteUrl(url?: string | null): string | null {
+  if (!url) return null;
+  if (url.startsWith('http')) return url;
+  return `${API_URL.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
+}
+
 export default function ChatScreen() {
   const { accessToken } = useAuth();
   const router = useRouter();
@@ -134,6 +140,7 @@ export default function ChatScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set());
   const [processedQuery, setProcessedQuery] = useState<string | null>(null);
+  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
 
   // Voice recording & transcription state
   const [isVoiceRecording, setIsVoiceRecording] = useState<boolean>(false);
@@ -150,9 +157,31 @@ export default function ChatScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    const fetchProfilePic = async () => {
+      try {
+        const response: any = await graphqlRequest(`
+          query GetChatProfilePic {
+            me {
+              profilePictureUrl
+            }
+          }
+        `);
+        if (response?.me?.profilePictureUrl) {
+          setProfilePictureUrl(getAbsoluteUrl(response.me.profilePictureUrl));
+        }
+      } catch (e) {
+        // silently ignore
+      }
+    };
+    fetchProfilePic();
+  }, []);
+
   const handleStartVoice = async () => {
     try {
-      await voiceWhisper.startRecording();
+      await voiceWhisper.startRecording(() => {
+        handleStopVoice();
+      });
       setIsVoiceRecording(true);
       setRecordingSeconds(0);
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
@@ -562,6 +591,59 @@ export default function ChatScreen() {
         );
       }
 
+      case 'correction': {
+        const isConfirmed = cancelledIds.has(value.id);
+        const dateStr = value.date ? new Date(value.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'Missed checkout';
+        return (
+          <GenUIActionCard
+            key={index}
+            type="attendance_correction"
+            title={`Correction: ${dateStr}`}
+            description={`Login: ${value.login || '—'}\nSuggested Logout: ${value.suggested_logout || '—'}\n${value.reason || ''}`}
+            actionText={isConfirmed ? "Confirmed" : "Confirm suggested logout"}
+            onAction={() => {
+              if (!isConfirmed && value.id) {
+                setCancelledIds(prev => new Set(prev).add(value.id));
+                handleSendMessage(`Confirm attendance correction for ${value.date} at ${value.suggested_logout}`);
+              }
+            }}
+          />
+        );
+      }
+
+      case 'route': {
+        return (
+          <View key={index} style={[styles.card, { borderColor: '#8b5cf640', backgroundColor: '#8b5cf615', padding: 12, borderRadius: 16 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <View style={{ backgroundColor: '#8b5cf625', padding: 8, borderRadius: 10, marginRight: 12 }}>
+                <Ionicons name="compass" size={20} color="#8b5cf6" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase', color: colors.textMuted }}>
+                  Continue in app
+                </Text>
+                <Text style={{ fontSize: 14, color: colors.text, marginTop: 4 }}>
+                  {value.reason || "Open the right screen to finish this."}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={{ backgroundColor: '#8b5cf6', paddingVertical: 10, borderRadius: 10, alignItems: 'center', marginTop: 8, flexDirection: 'row', justifyContent: 'center' }}
+              onPress={() => {
+                 if (value.path && value.path.startsWith('/')) {
+                   router.push(value.path as any);
+                 }
+              }}
+            >
+              <Text style={{ color: '#ffffff', fontWeight: '600', marginRight: 6 }}>
+                {value.label || "Open page"}
+              </Text>
+              <Ionicons name="arrow-forward" size={16} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
+        );
+      }
+
       default:
         return (
           <View key={index} style={styles.card}>
@@ -761,6 +843,12 @@ export default function ChatScreen() {
                         <Image
                           source={require('../../../assets/images/assistant-mark.webp')}
                           style={{ width: 26, height: 26, borderRadius: 13, resizeMode: 'contain' }}
+                          fadeDuration={0}
+                        />
+                      ) : profilePictureUrl ? (
+                        <Image
+                          source={{ uri: profilePictureUrl }}
+                          style={{ width: 26, height: 26, borderRadius: 13 }}
                           fadeDuration={0}
                         />
                       ) : (

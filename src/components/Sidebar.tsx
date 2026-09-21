@@ -18,6 +18,8 @@ import { useRouter, usePathname } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { NotificationService, subscribeUnreadCount } from '../services/notifications';
+import { OnboardingStorage } from '../utils/onboardingStorage';
+import { graphqlRequest } from '../services/api';
 import BrandLogo from './BrandLogo';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window') || { width: 375 };
@@ -34,6 +36,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { signOut } = useAuth();
   const { isDark, colors, accentColors } = useAppTheme();
   const [unreadCount, setUnreadCount] = React.useState(0);
+  const [isOnboardingCompleted, setIsOnboardingCompleted] = React.useState(false);
+  const [hasSeenAppTour, setHasSeenAppTour] = React.useState(false);
   
   const insets = useSafeAreaInsets();
   const [modalVisible, setModalVisible] = React.useState(isOpen);
@@ -47,6 +51,22 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     NotificationService.fetchUnreadCount();
     return unsub;
   }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      // Check onboarding tour and HR status
+      OnboardingStorage.hasSeenOnboarding().then((seen) => setHasSeenAppTour(seen));
+      graphqlRequest<{ myOnboarding?: { status?: string; progressPct?: number } }>(
+        `query CheckOnboarding { myOnboarding { status progressPct } }`
+      ).then((res) => {
+        const status = res?.myOnboarding?.status?.toLowerCase();
+        const pct = res?.myOnboarding?.progressPct;
+        if (status === 'completed' || (pct !== undefined && pct >= 100)) {
+          setIsOnboardingCompleted(true);
+        }
+      }).catch(() => {});
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -191,9 +211,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           {renderNavItem('home-outline', 'Dashboard', '/(tabs)', ['/(tabs)', '/index'])}
           {renderNavItem('time-outline', 'Attendance', '/attendance', ['/attendance'])}
           {renderNavItem('calendar-outline', 'Leaves', '/leave', ['/leave'])}
+          {renderNavItem('people-outline', 'My Team', '/team', ['/team'])}
           {renderNavItem('folder-outline', 'Documents', '/documents', ['/documents'])}
           {renderNavItem('receipt-outline', 'Payroll', '/payroll', ['/payroll'])}
-          {renderNavItem('checkbox-outline', 'My Onboarding', '/employee-onboarding', ['/employee-onboarding'])}
+          {!isOnboardingCompleted && renderNavItem('checkbox-outline', 'My Onboarding', '/employee-onboarding', ['/employee-onboarding'])}
           {renderNavItem('person-outline', 'Profile', '/profile', ['/profile'])}
           {renderNavItem(
             'notifications-outline',
@@ -204,13 +225,16 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             unreadCount
           )}
 
-          <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>App Guide</Text>
-          {renderNavItem('compass-outline', 'App Tour', '/onboarding', ['/onboarding'])}
+          {!hasSeenAppTour && (
+            <>
+              <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>App Guide</Text>
+              {renderNavItem('compass-outline', 'App Tour', '/onboarding', ['/onboarding'])}
+            </>
+          )}
 
           <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Corporate Portals</Text>
-          {renderNavItem('people-outline', 'Colleague Directory', '/employees', [], true)}
-          {renderNavItem('book-outline', 'Policies & Handbook', '/policies', [], true)}
-          {renderNavItem('settings-outline', 'System Settings', '/settings', [], true)}
+          {renderNavItem('book-outline', 'Policies & Handbook', '/policies', ['/policies'])}
+          {renderNavItem('chatbubble-outline', 'Submit Feedback', '/feedback', ['/feedback'])}
         </ScrollView>
 
         {/* Footer */}

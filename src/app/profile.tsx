@@ -23,6 +23,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAppTheme } from '../context/ThemeContext';
 import ScreenHeader from '../components/ScreenHeader';
+import ImagePreviewModal from '../components/ImagePreviewModal';
+import DateTimePicker, { DateTimePickerAndroid, DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 // =====================================================
 // GRAPHQL QUERIES & MUTATIONS
@@ -73,6 +75,7 @@ const PROFILE_QUERY = `
       panNumber
       aadharNumber
       uanNumber
+      residentialAddress
       attendanceRate
       leaveBalance
       totalLeaveEntitlement
@@ -93,6 +96,12 @@ const UPDATE_PROFILE_MUTATION = `
         phoneNumber
         dateOfBirth
         gender
+        residentialAddress
+        bankAccountNumber
+        bankIfscCode
+        panNumber
+        aadharNumber
+        uanNumber
       }
     }
   }
@@ -114,6 +123,7 @@ interface UserProfile {
   dateOfJoining: string | null;
   dateOfBirth: string | null;
   gender: string | null;
+  residentialAddress: string | null;
   profilePictureUrl: string | null;
   organization?: {
     id: string;
@@ -170,13 +180,93 @@ export default function ProfileScreen() {
 
   // Edit Profile States
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [editModalTab, setEditModalTab] = useState<'personal' | 'financial' | 'employment'>('personal');
   const [editFirstName, setEditFirstName] = useState('');
   const [editLastName, setEditLastName] = useState('');
   const [editPhoneNumber, setEditPhoneNumber] = useState('');
   const [editDateOfBirth, setEditDateOfBirth] = useState('');
   const [editGender, setEditGender] = useState('male');
+  const [editAddress, setEditAddress] = useState('');
+  const [editBankAccountNumber, setEditBankAccountNumber] = useState('');
+  const [editBankIfscCode, setEditBankIfscCode] = useState('');
+  const [editPanNumber, setEditPanNumber] = useState('');
+  const [editAadharNumber, setEditAadharNumber] = useState('');
+  const [editUanNumber, setEditUanNumber] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  // Preview Image Lightbox State
+  const [previewImage, setPreviewImage] = useState<{ url: string; name?: string; subtitle?: string } | null>(null);
+
+  // Date format conversion helpers
+  const toDisplayDate = (dateStr?: string | null): string => {
+    if (!dateStr || !dateStr.trim()) return '';
+    const clean = dateStr.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+      const [y, m, d] = clean.split('-');
+      return `${d}-${m}-${y}`;
+    }
+    return clean;
+  };
+
+  const toBackendDate = (displayDate?: string | null): string | null => {
+    if (!displayDate || !displayDate.trim()) return null;
+    const clean = displayDate.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) return clean;
+    const parts = clean.split(/[-/]/);
+    if (parts.length === 3 && parts[0].length <= 2 && parts[2].length === 4) {
+      const day = parts[0].padStart(2, '0');
+      const month = parts[1].padStart(2, '0');
+      const year = parts[2];
+      return `${year}-${month}-${day}`;
+    }
+    return clean;
+  };
+
+  const parseDobToDate = (dobStr?: string | null): Date => {
+    if (!dobStr || !dobStr.trim()) return new Date(1998, 0, 1);
+    const clean = dobStr.trim();
+    const parts = clean.split(/[-/]/);
+    if (parts.length === 3) {
+      if (parts[0].length <= 2 && parts[2].length === 4) {
+        // DD-MM-YYYY
+        const d = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const y = parseInt(parts[2], 10);
+        const parsed = new Date(y, m, d);
+        if (!isNaN(parsed.getTime())) return parsed;
+      } else if (parts[0].length === 4 && parts[2].length <= 2) {
+        // YYYY-MM-DD
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const d = parseInt(parts[2], 10);
+        const parsed = new Date(y, m, d);
+        if (!isNaN(parsed.getTime())) return parsed;
+      }
+    }
+    return new Date(1998, 0, 1);
+  };
+
+  const handleAndroidDatePicker = () => {
+    if (!DateTimePickerAndroid) return;
+    try {
+      DateTimePickerAndroid.open({
+        value: parseDobToDate(editDateOfBirth),
+        onChange: (event: DateTimePickerEvent, selectedDate?: Date) => {
+          if (event.type === 'set' && selectedDate) {
+            const dd = String(selectedDate.getDate()).padStart(2, '0');
+            const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const yyyy = selectedDate.getFullYear();
+            setEditDateOfBirth(`${dd}-${mm}-${yyyy}`);
+          }
+        },
+        mode: 'date',
+        maximumDate: new Date(),
+      });
+    } catch (err) {
+      console.warn('Failed to open native Android date picker:', err);
+    }
+  };
 
   const fetchProfileData = async () => {
     try {
@@ -222,8 +312,15 @@ export default function ProfileScreen() {
     setEditFirstName(profile.firstName || '');
     setEditLastName(profile.lastName || '');
     setEditPhoneNumber(profile.phoneNumber || '');
-    setEditDateOfBirth(profile.dateOfBirth || '');
+    setEditDateOfBirth(toDisplayDate(profile.dateOfBirth));
     setEditGender(profile.gender?.toLowerCase() || 'male');
+    setEditAddress(profile.residentialAddress || '');
+    setEditBankAccountNumber(profile.bankAccountNumber || '');
+    setEditBankIfscCode(profile.bankIfscCode || '');
+    setEditPanNumber(profile.panNumber || '');
+    setEditAadharNumber(profile.aadharNumber || '');
+    setEditUanNumber(profile.uanNumber || '');
+    setEditModalTab(activeTab === 'financial' ? 'financial' : activeTab === 'employment' ? 'employment' : 'personal');
     setIsEditModalVisible(true);
   };
 
@@ -232,6 +329,8 @@ export default function ProfileScreen() {
       Alert.alert('Required Fields', 'First name and last name are required.');
       return;
     }
+
+    const isoDob = toBackendDate(editDateOfBirth);
 
     setIsSavingProfile(true);
     try {
@@ -242,8 +341,14 @@ export default function ProfileScreen() {
             firstName: editFirstName.trim(),
             lastName: editLastName.trim(),
             phoneNumber: editPhoneNumber.trim() || null,
-            dateOfBirth: editDateOfBirth.trim() || null,
+            dateOfBirth: isoDob,
             gender: editGender.toLowerCase(),
+            residentialAddress: editAddress.trim() || null,
+            bankAccountNumber: editBankAccountNumber.trim() || null,
+            bankIfscCode: editBankIfscCode.trim().toUpperCase() || null,
+            panNumber: editPanNumber.trim().toUpperCase() || null,
+            aadharNumber: editAadharNumber.trim() || null,
+            uanNumber: editUanNumber.trim() || null,
           },
         }
       );
@@ -428,17 +533,31 @@ export default function ProfileScreen() {
         {/* Header Hero */}
         <View style={styles.headerHero}>
           <View style={styles.avatarContainer}>
-            {profile.profilePictureUrl ? (
-              <Image
-                source={{ uri: profile.profilePictureUrl }}
-                style={styles.avatarImage}
-                fadeDuration={0}
-              />
-            ) : (
-              <View style={[styles.avatarPlaceholder, { backgroundColor: accentColors.primary }]}>
-                <Text style={styles.avatarText}>{getInitials()}</Text>
-              </View>
-            )}
+            <TouchableOpacity
+              activeOpacity={profile.profilePictureUrl ? 0.85 : 1}
+              onPress={() => {
+                if (profile.profilePictureUrl) {
+                  setPreviewImage({
+                    url: profile.profilePictureUrl,
+                    name: `${profile.firstName} ${profile.lastName}`,
+                    subtitle: profile.designation?.name || 'Employee',
+                  });
+                }
+              }}
+              accessibilityLabel="View profile photo"
+            >
+              {profile.profilePictureUrl ? (
+                <Image
+                  source={{ uri: profile.profilePictureUrl }}
+                  style={styles.avatarImage}
+                  fadeDuration={0}
+                />
+              ) : (
+                <View style={[styles.avatarPlaceholder, { backgroundColor: accentColors.primary }]}>
+                  <Text style={styles.avatarText}>{getInitials()}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.photoEditBadge,
@@ -450,11 +569,7 @@ export default function ProfileScreen() {
               accessibilityRole="button"
               accessibilityLabel="Change Profile Photo"
             >
-              {isUploadingPhoto ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Ionicons name="camera" size={16} color="#ffffff" />
-              )}
+              <Ionicons name="camera" size={14} color="#ffffff" />
             </TouchableOpacity>
           </View>
 
@@ -466,22 +581,17 @@ export default function ProfileScreen() {
           </Text>
 
           <View style={styles.verifiedBadgeRow}>
-            <View style={[styles.badge, profile.isVerified ? styles.verifiedBadge : styles.pendingBadge]}>
+            <View style={[styles.badge, (profile.isVerified || profile.isActive) ? styles.verifiedBadge : styles.pendingBadge]}>
               <Ionicons
-                name={profile.isVerified ? 'checkmark-circle' : 'alert-circle'}
+                name={(profile.isVerified || profile.isActive) ? 'checkmark-circle' : 'alert-circle'}
                 size={12}
-                color={profile.isVerified ? '#10b981' : '#f59e0b'}
+                color={(profile.isVerified || profile.isActive) ? '#10b981' : '#f59e0b'}
                 style={{ marginRight: 4 }}
               />
-              <Text style={[styles.badgeText, { color: profile.isVerified ? '#10b981' : '#f59e0b' }]}>
-                {profile.isVerified ? 'Verified Account' : 'Pending Verification'}
+              <Text style={[styles.badgeText, { color: (profile.isVerified || profile.isActive) ? '#10b981' : '#f59e0b' }]}>
+                {profile.isVerified ? 'Verified Account' : profile.isActive ? 'Active Account' : 'Pending Verification'}
               </Text>
             </View>
-            {!profile.isVerified && (
-              <Text style={styles.verifyHint}>
-                Completes when required onboarding tasks are done
-              </Text>
-            )}
           </View>
         </View>
 
@@ -541,7 +651,8 @@ export default function ProfileScreen() {
                 'Gender',
                 profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : 'Not Configured'
               )}
-              {renderDetailRow('gift-outline', 'Date of Birth', formatDate(profile.dateOfBirth), true)}
+              {renderDetailRow('gift-outline', 'Date of Birth', formatDate(profile.dateOfBirth))}
+              {renderDetailRow('home-outline', 'Residential Address', profile.residentialAddress, true)}
             </View>
           )}
 
@@ -612,7 +723,7 @@ export default function ProfileScreen() {
         >
           <View style={[styles.modalCard, { backgroundColor: colors.backgroundCard, borderColor: colors.border }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Edit Personal Details</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Update Profile</Text>
               <TouchableOpacity
                 onPress={() => setIsEditModalVisible(false)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -621,64 +732,284 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* Modal Segmented Tab Bar */}
+            <View style={styles.modalTabBar}>
+              <TouchableOpacity
+                style={[
+                  styles.modalTabItem,
+                  editModalTab === 'personal' && { backgroundColor: accentColors.light, borderColor: accentColors.primary },
+                ]}
+                onPress={() => setEditModalTab('personal')}
+              >
+                <Ionicons
+                  name="person"
+                  size={14}
+                  color={editModalTab === 'personal' ? accentColors.primary : colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.modalTabText,
+                    editModalTab === 'personal' && { color: accentColors.primary, fontWeight: '700' },
+                  ]}
+                >
+                  Personal
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalTabItem,
+                  editModalTab === 'financial' && { backgroundColor: accentColors.light, borderColor: accentColors.primary },
+                ]}
+                onPress={() => setEditModalTab('financial')}
+              >
+                <Ionicons
+                  name="card"
+                  size={14}
+                  color={editModalTab === 'financial' ? accentColors.primary : colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.modalTabText,
+                    editModalTab === 'financial' && { color: accentColors.primary, fontWeight: '700' },
+                  ]}
+                >
+                  Financial
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalTabItem,
+                  editModalTab === 'employment' && { backgroundColor: accentColors.light, borderColor: accentColors.primary },
+                ]}
+                onPress={() => setEditModalTab('employment')}
+              >
+                <Ionicons
+                  name="briefcase"
+                  size={14}
+                  color={editModalTab === 'employment' ? accentColors.primary : colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.modalTabText,
+                    editModalTab === 'employment' && { color: accentColors.primary, fontWeight: '700' },
+                  ]}
+                >
+                  Employment
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>First Name *</Text>
-              <TextInput
-                style={[styles.textInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
-                value={editFirstName}
-                onChangeText={setEditFirstName}
-                placeholder="Enter first name"
-                placeholderTextColor={colors.textMuted}
-              />
+              {editModalTab === 'personal' && (
+                <View>
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>First Name *</Text>
+                  <TextInput
+                    style={[styles.textInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+                    value={editFirstName}
+                    onChangeText={setEditFirstName}
+                    placeholder="Enter first name"
+                    placeholderTextColor={colors.textMuted}
+                  />
 
-              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Last Name *</Text>
-              <TextInput
-                style={[styles.textInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
-                value={editLastName}
-                onChangeText={setEditLastName}
-                placeholder="Enter last name"
-                placeholderTextColor={colors.textMuted}
-              />
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Last Name *</Text>
+                  <TextInput
+                    style={[styles.textInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+                    value={editLastName}
+                    onChangeText={setEditLastName}
+                    placeholder="Enter last name"
+                    placeholderTextColor={colors.textMuted}
+                  />
 
-              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Phone Number</Text>
-              <TextInput
-                style={[styles.textInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
-                value={editPhoneNumber}
-                onChangeText={setEditPhoneNumber}
-                placeholder="+91 9876543210"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="phone-pad"
-              />
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Phone Number</Text>
+                  <TextInput
+                    style={[styles.textInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+                    value={editPhoneNumber}
+                    onChangeText={setEditPhoneNumber}
+                    placeholder="+91 9876543210"
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="phone-pad"
+                  />
 
-              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Date of Birth (YYYY-MM-DD)</Text>
-              <TextInput
-                style={[styles.textInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
-                value={editDateOfBirth}
-                onChangeText={setEditDateOfBirth}
-                placeholder="1995-05-20"
-                placeholderTextColor={colors.textMuted}
-              />
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Date of Birth</Text>
 
-              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Gender</Text>
-              <View style={styles.genderRow}>
-                {['male', 'female', 'other'].map((g) => (
-                  <TouchableOpacity
-                    key={g}
-                    style={[
-                      styles.genderChip,
-                      {
-                        backgroundColor: editGender === g ? accentColors.primary : colors.inputBg,
-                        borderColor: editGender === g ? accentColors.primary : colors.border,
-                      },
-                    ]}
-                    onPress={() => setEditGender(g)}
-                  >
-                    <Text style={[styles.genderChipText, { color: editGender === g ? '#ffffff' : colors.text }]}>
-                      {g.charAt(0).toUpperCase() + g.slice(1)}
+                  {/* Android: use native dialog on tap. iOS: compact picker opens floating popover above modal */}
+                  {Platform.OS === 'android' ? (
+                    <TouchableOpacity
+                      style={[
+                        styles.textInput,
+                        styles.datePickerBtn,
+                        { backgroundColor: colors.inputBg, borderColor: colors.border },
+                      ]}
+                      onPress={handleAndroidDatePicker}
+                      activeOpacity={0.75}
+                      accessibilityRole="button"
+                      accessibilityLabel="Select Date of Birth"
+                    >
+                      <Text style={[styles.datePickerBtnText, { color: editDateOfBirth ? colors.text : colors.textMuted }]}>
+                        {editDateOfBirth || 'DD-MM-YYYY'}
+                      </Text>
+                      <Ionicons name="calendar-outline" size={18} color={accentColors.primary} />
+                    </TouchableOpacity>
+                  ) : (
+                    <View
+                      style={[
+                        styles.textInput,
+                        styles.datePickerBtn,
+                        { backgroundColor: colors.inputBg, borderColor: colors.border },
+                      ]}
+                    >
+                      <Text style={[styles.datePickerBtnText, { color: editDateOfBirth ? colors.text : colors.textMuted, flex: 1 }]}>
+                        {editDateOfBirth || 'DD-MM-YYYY'}
+                      </Text>
+                      <DateTimePicker
+                        value={parseDobToDate(editDateOfBirth)}
+                        mode="date"
+                        display="compact"
+                        maximumDate={new Date()}
+                        themeVariant={isDark ? 'dark' : 'light'}
+                        accentColor={accentColors.primary}
+                        onValueChange={(_, selectedDate) => {
+                          if (selectedDate) {
+                            const dd = String(selectedDate.getDate()).padStart(2, '0');
+                            const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                            const yyyy = selectedDate.getFullYear();
+                            setEditDateOfBirth(`${dd}-${mm}-${yyyy}`);
+                          }
+                        }}
+                      />
+                    </View>
+                  )}
+
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Gender</Text>
+                  <View style={styles.genderRow}>
+                    {['male', 'female', 'other'].map((g) => (
+                      <TouchableOpacity
+                        key={g}
+                        style={[
+                          styles.genderChip,
+                          {
+                            backgroundColor: editGender === g ? accentColors.primary : colors.inputBg,
+                            borderColor: editGender === g ? accentColors.primary : colors.border,
+                          },
+                        ]}
+                        onPress={() => setEditGender(g)}
+                      >
+                        <Text style={[styles.genderChipText, { color: editGender === g ? '#ffffff' : colors.text }]}>
+                          {g.charAt(0).toUpperCase() + g.slice(1)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Residential Address</Text>
+                  <TextInput
+                    style={[styles.textInput, styles.multilineInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+                    value={editAddress}
+                    onChangeText={setEditAddress}
+                    placeholder="Enter residential address"
+                    placeholderTextColor={colors.textMuted}
+                    multiline
+                    numberOfLines={3}
+                  />
+                </View>
+              )}
+
+              {editModalTab === 'financial' && (
+                <View>
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Bank Account Number</Text>
+                  <TextInput
+                    style={[styles.textInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+                    value={editBankAccountNumber}
+                    onChangeText={setEditBankAccountNumber}
+                    placeholder="e.g. 123456789012"
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="number-pad"
+                  />
+
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>IFSC Bank Code</Text>
+                  <TextInput
+                    style={[styles.textInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+                    value={editBankIfscCode}
+                    onChangeText={(val) => setEditBankIfscCode(val.toUpperCase())}
+                    placeholder="e.g. HDFC0001234"
+                    placeholderTextColor={colors.textMuted}
+                    autoCapitalize="characters"
+                  />
+
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>PAN Identification Number</Text>
+                  <TextInput
+                    style={[styles.textInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+                    value={editPanNumber}
+                    onChangeText={(val) => setEditPanNumber(val.toUpperCase())}
+                    placeholder="e.g. ABCDE1234F"
+                    placeholderTextColor={colors.textMuted}
+                    autoCapitalize="characters"
+                    maxLength={10}
+                  />
+
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Aadhaar Identification Number</Text>
+                  <TextInput
+                    style={[styles.textInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+                    value={editAadharNumber}
+                    onChangeText={setEditAadharNumber}
+                    placeholder="12-digit Aadhaar number"
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="number-pad"
+                    maxLength={12}
+                  />
+
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Universal Account Number (UAN)</Text>
+                  <TextInput
+                    style={[styles.textInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+                    value={editUanNumber}
+                    onChangeText={setEditUanNumber}
+                    placeholder="12-digit UAN"
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="number-pad"
+                    maxLength={12}
+                  />
+                </View>
+              )}
+
+              {editModalTab === 'employment' && (
+                <View>
+                  <View style={[styles.modalInfoBox, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.12)' : '#eff6ff', borderColor: isDark ? 'rgba(59, 130, 246, 0.25)' : '#bfdbfe' }]}>
+                    <Ionicons name="information-circle-outline" size={18} color="#3b82f6" style={{ marginRight: 8, marginTop: 1 }} />
+                    <Text style={[styles.modalInfoText, { color: isDark ? '#93c5fd' : '#1e40af' }]}>
+                      Employment parameters are managed by your organization's HR / Admin. To update roles, please contact your administrator.
                     </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                  </View>
+
+                  <View style={[styles.modalReadOnlyCard, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                    <View style={styles.modalReadOnlyRow}>
+                      <Text style={[styles.modalReadOnlyLabel, { color: colors.textSecondary }]}>Employee ID</Text>
+                      <Text style={[styles.modalReadOnlyValue, { color: colors.text }]}>{profile?.employeeId || 'Not Configured'}</Text>
+                    </View>
+                    <View style={styles.modalReadOnlyRow}>
+                      <Text style={[styles.modalReadOnlyLabel, { color: colors.textSecondary }]}>Department</Text>
+                      <Text style={[styles.modalReadOnlyValue, { color: colors.text }]}>{profile?.department?.name || 'General'}</Text>
+                    </View>
+                    <View style={styles.modalReadOnlyRow}>
+                      <Text style={[styles.modalReadOnlyLabel, { color: colors.textSecondary }]}>Designation</Text>
+                      <Text style={[styles.modalReadOnlyValue, { color: colors.text }]}>{profile?.designation?.name || 'Employee'}</Text>
+                    </View>
+                    <View style={styles.modalReadOnlyRow}>
+                      <Text style={[styles.modalReadOnlyLabel, { color: colors.textSecondary }]}>Employment Type</Text>
+                      <Text style={[styles.modalReadOnlyValue, { color: colors.text }]}>{getFormattedEmploymentType(profile?.employmentType)}</Text>
+                    </View>
+                    <View style={styles.modalReadOnlyRow}>
+                      <Text style={[styles.modalReadOnlyLabel, { color: colors.textSecondary }]}>Reporting Manager</Text>
+                      <Text style={[styles.modalReadOnlyValue, { color: colors.text }]}>{profile?.manager ? `${profile.manager.firstName} ${profile.manager.lastName}` : 'Direct Report to CEO'}</Text>
+                    </View>
+                    <View style={[styles.modalReadOnlyRow, { borderBottomWidth: 0 }]}>
+                      <Text style={[styles.modalReadOnlyLabel, { color: colors.textSecondary }]}>Office Location</Text>
+                      <Text style={[styles.modalReadOnlyValue, { color: colors.text }]}>{profile?.officeLocation?.name || 'Not Configured'}</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
             </ScrollView>
 
             <View style={styles.modalFooter}>
@@ -688,21 +1019,32 @@ export default function ProfileScreen() {
               >
                 <Text style={[styles.modalCancelText, { color: colors.textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalSaveBtn, { backgroundColor: accentColors.primary }]}
-                onPress={handleSaveProfile}
-                disabled={isSavingProfile}
-              >
-                {isSavingProfile ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <Text style={styles.modalSaveText}>Save Changes</Text>
-                )}
-              </TouchableOpacity>
+              {editModalTab !== 'employment' && (
+                <TouchableOpacity
+                  style={[styles.modalSaveBtn, { backgroundColor: accentColors.primary }]}
+                  onPress={handleSaveProfile}
+                  disabled={isSavingProfile}
+                >
+                  {isSavingProfile ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text style={styles.modalSaveText}>Save Changes</Text>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Full Screen Image Preview Lightbox */}
+      <ImagePreviewModal
+        visible={!!previewImage}
+        imageUrl={previewImage?.url}
+        title={previewImage?.name}
+        subtitle={previewImage?.subtitle}
+        onClose={() => setPreviewImage(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -977,13 +1319,89 @@ const getStyles = (colors: any, accentColors: any, isDark: boolean) =>
       fontWeight: '800',
     },
     modalBody: {
-      maxHeight: 380,
+      maxHeight: 400,
+    },
+    modalTabBar: {
+      flexDirection: 'row',
+      backgroundColor: colors.inputBg,
+      borderRadius: 12,
+      padding: 4,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: 14,
+    },
+    modalTabItem: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 7,
+      borderRadius: 9,
+      borderWidth: 1,
+      borderColor: 'transparent',
+      gap: 5,
+    },
+    modalTabText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
+    multilineInput: {
+      minHeight: 70,
+      textAlignVertical: 'top',
+      paddingTop: 10,
+    },
+    modalInfoBox: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      borderRadius: 12,
+      borderWidth: 1,
+      padding: 12,
+      marginBottom: 14,
+    },
+    modalInfoText: {
+      flex: 1,
+      fontSize: 12,
+      lineHeight: 17,
+      fontWeight: '500',
+    },
+    modalReadOnlyCard: {
+      borderRadius: 14,
+      borderWidth: 1,
+      paddingHorizontal: 14,
+      paddingVertical: 4,
+    },
+    modalReadOnlyRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    modalReadOnlyLabel: {
+      fontSize: 12,
+      fontWeight: '500',
+    },
+    modalReadOnlyValue: {
+      fontSize: 13,
+      fontWeight: '700',
     },
     inputLabel: {
       fontSize: 12,
       fontWeight: '700',
       marginTop: 10,
       marginBottom: 6,
+    },
+    datePickerBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 12,
+    },
+    datePickerBtnText: {
+      fontSize: 14,
+      fontWeight: '600',
     },
     textInput: {
       borderRadius: 12,
@@ -1038,3 +1456,4 @@ const getStyles = (colors: any, accentColors: any, isDark: boolean) =>
       fontWeight: '700',
     },
   });
+

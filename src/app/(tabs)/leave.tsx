@@ -10,6 +10,7 @@ import {
   Modal,
   RefreshControl,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { graphqlRequest } from '../../services/api';
@@ -18,6 +19,9 @@ import { useRouter } from 'expo-router';
 import Sidebar from '../../components/Sidebar';
 import { useAppTheme } from '../../context/ThemeContext';
 import ScreenHeader from '../../components/ScreenHeader';
+import LeaveCalendar from '../../components/LeaveCalendar';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import moment from 'moment';
 
 const LEAVE_PORTAL_QUERY = `
   query GetLeavePortalData {
@@ -42,6 +46,29 @@ const LEAVE_PORTAL_QUERY = `
       leaveType {
         name
         code
+      }
+    }
+    companyHolidays {
+      id
+      name
+      holidayDate
+      isOptional
+      description
+    }
+    teamLeaves {
+      id
+      fromDate
+      toDate
+      status
+      leaveType {
+        id
+        name
+        code
+      }
+      user {
+        id
+        firstName
+        lastName
       }
     }
   }
@@ -93,6 +120,8 @@ interface LeaveBalance {
 interface LeavePortalData {
   leaveBalance: LeaveBalance[];
   getLeaveRequests: LeaveRequest[];
+  teamLeaves: any[];
+  companyHolidays: any[];
 }
 
 // Module-level in-memory cache for instant route revisit
@@ -106,6 +135,7 @@ export default function LeaveScreen() {
   const [data, setData] = useState<LeavePortalData | null>(cachedLeaveData);
   const [isLoading, setIsLoading] = useState(!cachedLeaveData);
   const [refreshing, setRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState<'overview' | 'calendar'>('overview');
   
   // Pagination & Filter states
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'>('ALL');
@@ -115,10 +145,13 @@ export default function LeaveScreen() {
   // Apply Leave form states
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedLeaveTypeId, setSelectedLeaveTypeId] = useState('');
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [fromDate, setFromDate] = useState<Date | null>(null);
+  const [toDate, setToDate] = useState<Date | null>(null);
+  const [showFromPicker, setShowFromPicker] = useState(false);
+  const [showToPicker, setShowToPicker] = useState(false);
   const [reason, setReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const fetchLeaveData = async () => {
     try {
@@ -147,15 +180,13 @@ export default function LeaveScreen() {
   };
 
   const handleApplyLeave = async () => {
-    if (!fromDate || !toDate || !reason || !selectedLeaveTypeId) {
-      Alert.alert('Error', 'Please fill in all the details.');
+    if (!fromDate || !toDate || !reason.trim() || !selectedLeaveTypeId) {
+      Alert.alert('Missing Information', 'Please select both dates, leave category, and enter a reason.');
       return;
     }
 
-    // Validate date format YYYY-MM-DD
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(fromDate) || !dateRegex.test(toDate)) {
-      Alert.alert('Invalid Date Format', 'Please enter dates in YYYY-MM-DD format.');
+    if (moment(toDate).isBefore(moment(fromDate), 'day')) {
+      Alert.alert('Invalid Date Range', 'End date cannot be earlier than start date.');
       return;
     }
 
@@ -164,9 +195,9 @@ export default function LeaveScreen() {
       await graphqlRequest(CREATE_LEAVE_MUTATION, {
         input: {
           leaveTypeId: selectedLeaveTypeId,
-          fromDate,
-          toDate,
-          reason,
+          fromDate: moment(fromDate).format('YYYY-MM-DD'),
+          toDate: moment(toDate).format('YYYY-MM-DD'),
+          reason: reason.trim(),
           halfDayPeriod: 'full_day',
         },
       });
@@ -174,8 +205,8 @@ export default function LeaveScreen() {
       Alert.alert('Success', 'Leave request submitted successfully.');
       setIsModalVisible(false);
       // Reset form
-      setFromDate('');
-      setToDate('');
+      setFromDate(null);
+      setToDate(null);
       setReason('');
       fetchLeaveData();
     } catch (error: any) {
@@ -186,20 +217,22 @@ export default function LeaveScreen() {
   };
 
   const handleCancelLeave = async (id: string) => {
+    if (cancellingId) return; // Prevent duplicate clicks
     Alert.alert('Cancel Request', 'Are you sure you want to cancel this leave request?', [
       { text: 'No', style: 'cancel' },
       {
         text: 'Yes, Cancel',
         style: 'destructive',
         onPress: async () => {
-          setIsLoading(true);
+          setCancellingId(id);
           try {
             await graphqlRequest(CANCEL_LEAVE_MUTATION, { requestId: id });
             Alert.alert('Cancelled', 'Leave request has been cancelled.');
             fetchLeaveData();
           } catch (error: any) {
             Alert.alert('Failed', error.message || 'Could not cancel request.');
-            setIsLoading(false);
+          } finally {
+            setCancellingId(null);
           }
         },
       },
@@ -246,26 +279,62 @@ export default function LeaveScreen() {
         showMenu={false}
         showNotifications={true}
         onMenu={() => setIsSidebarOpen(true)}
-        rightElement={
-          <TouchableOpacity
-            style={[styles.applyHeaderBtn, { backgroundColor: accentColors.primary }]}
-            onPress={() => setIsModalVisible(true)}
-            accessible={true}
-            accessibilityRole="button"
-            accessibilityLabel="Apply for Leave"
-          >
-            <Ionicons name="add" size={16} color="#ffffff" style={{ marginRight: 4 }} />
-            <Text style={styles.applyHeaderBtnText}>Apply</Text>
-          </TouchableOpacity>
-        }
       />
 
-      <ScrollView
-        contentContainerStyle={styles.container}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={accentColors.primary} />
-        }
-      >
+      <View style={[styles.toggleContainer, { paddingHorizontal: 16, marginTop: 12 }]}>
+        <TouchableOpacity
+          style={[
+            styles.toggleButton,
+            { backgroundColor: viewMode === 'overview' ? accentColors.primary + '20' : 'transparent' }
+          ]}
+          onPress={() => setViewMode('overview')}
+        >
+          <Ionicons name="list-outline" size={20} color={viewMode === 'overview' ? accentColors.primary : colors.textSecondary} />
+          <Text style={[
+            styles.toggleText,
+            { color: viewMode === 'overview' ? accentColors.primary : colors.textSecondary }
+          ]}>Overview</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.toggleButton,
+            { backgroundColor: viewMode === 'calendar' ? accentColors.primary + '20' : 'transparent' }
+          ]}
+          onPress={() => setViewMode('calendar')}
+        >
+          <Ionicons name="calendar-outline" size={20} color={viewMode === 'calendar' ? accentColors.primary : colors.textSecondary} />
+          <Text style={[
+            styles.toggleText,
+            { color: viewMode === 'calendar' ? accentColors.primary : colors.textSecondary }
+          ]}>Calendar</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+        <TouchableOpacity
+          style={[styles.fullWidthApplyBtn, { backgroundColor: accentColors.primary }]}
+          onPress={() => setIsModalVisible(true)}
+        >
+          <Ionicons name="add-circle-outline" size={20} color="#fff" />
+          <Text style={styles.fullWidthApplyBtnText}>Apply for Leave</Text>
+        </TouchableOpacity>
+      </View>
+
+      {viewMode === 'calendar' ? (
+        <ScrollView style={{ flex: 1, paddingHorizontal: 16 }}>
+          <LeaveCalendar 
+            myLeaves={data?.getLeaveRequests || []} 
+            teamLeaves={data?.teamLeaves || []} 
+            holidays={data?.companyHolidays || []} 
+          />
+        </ScrollView>
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.container}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={accentColors.primary} />
+          }
+        >
         {/* Leave Balances Horizontal Scroll */}
         <Text style={styles.sectionTitle}>Leave Balances</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.balanceScroll}>
@@ -356,13 +425,21 @@ export default function LeaveScreen() {
 
               {req.status.toLowerCase() === 'pending' && (
                 <TouchableOpacity
-                  style={styles.cancelBtn}
+                  style={[styles.cancelBtn, cancellingId === req.id && { opacity: 0.7 }]}
                   onPress={() => handleCancelLeave(req.id)}
+                  disabled={cancellingId !== null}
                   accessible={true}
                   accessibilityRole="button"
                   accessibilityLabel="Cancel Leave Request"
                 >
-                  <Text style={styles.cancelBtnText}>Cancel Request</Text>
+                  {cancellingId === req.id ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <ActivityIndicator size="small" color="#ef4444" />
+                      <Text style={styles.cancelBtnText}>Cancelling...</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.cancelBtnText}>Cancel Request</Text>
+                  )}
                 </TouchableOpacity>
               )}
             </View>
@@ -422,7 +499,8 @@ export default function LeaveScreen() {
             </View>
           </View>
         )}
-      </ScrollView>
+        </ScrollView>
+      )}
 
       {/* Apply Leave Modal */}
       <Modal
@@ -466,26 +544,60 @@ export default function LeaveScreen() {
               </View>
 
               {/* Start Date */}
-              <Text style={styles.inputLabel}>From Date (YYYY-MM-DD)</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="2026-06-01"
-                placeholderTextColor="#64748b"
-                value={fromDate}
-                onChangeText={setFromDate}
-                autoCapitalize="none"
-              />
+              <Text style={styles.inputLabel}>From Date (DD/MM/YYYY)</Text>
+              <TouchableOpacity
+                style={styles.datePickerBtn}
+                onPress={() => setShowFromPicker(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="calendar-outline" size={18} color={accentColors.primary} style={{ marginRight: 8 }} />
+                <Text style={[styles.datePickerText, !fromDate && { color: '#64748b' }]}>
+                  {fromDate ? moment(fromDate).format('DD/MM/YYYY') : 'Select start date (DD/MM/YYYY)'}
+                </Text>
+              </TouchableOpacity>
+              {showFromPicker && (
+                <DateTimePicker
+                  value={fromDate || new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event: DateTimePickerEvent, selectedDate?: Date) => {
+                    setShowFromPicker(false);
+                    if (selectedDate) {
+                      setFromDate(selectedDate);
+                      if (!toDate || moment(toDate).isBefore(moment(selectedDate), 'day')) {
+                        setToDate(selectedDate);
+                      }
+                    }
+                  }}
+                />
+              )}
 
               {/* End Date */}
-              <Text style={styles.inputLabel}>To Date (YYYY-MM-DD)</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="2026-06-03"
-                placeholderTextColor="#64748b"
-                value={toDate}
-                onChangeText={setToDate}
-                autoCapitalize="none"
-              />
+              <Text style={styles.inputLabel}>To Date (DD/MM/YYYY)</Text>
+              <TouchableOpacity
+                style={styles.datePickerBtn}
+                onPress={() => setShowToPicker(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="calendar-outline" size={18} color={accentColors.primary} style={{ marginRight: 8 }} />
+                <Text style={[styles.datePickerText, !toDate && { color: '#64748b' }]}>
+                  {toDate ? moment(toDate).format('DD/MM/YYYY') : 'Select end date (DD/MM/YYYY)'}
+                </Text>
+              </TouchableOpacity>
+              {showToPicker && (
+                <DateTimePicker
+                  value={toDate || fromDate || new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  minimumDate={fromDate || undefined}
+                  onChange={(event: DateTimePickerEvent, selectedDate?: Date) => {
+                    setShowToPicker(false);
+                    if (selectedDate) {
+                      setToDate(selectedDate);
+                    }
+                  }}
+                />
+              )}
 
               {/* Reason */}
               <Text style={styles.inputLabel}>Reason / Remarks</Text>
@@ -509,7 +621,11 @@ export default function LeaveScreen() {
               {isSubmitting ? (
                 <ActivityIndicator style={{ marginVertical: 20 }} color={accentColors.primary} />
               ) : (
-                <TouchableOpacity style={styles.submitBtn} onPress={handleApplyLeave}>
+                <TouchableOpacity 
+                  style={[styles.submitBtn, isSubmitting && { opacity: 0.6 }]} 
+                  onPress={handleApplyLeave}
+                  disabled={isSubmitting}
+                >
                   <Ionicons name="calendar" size={18} color="#ffffff" style={{ marginRight: 8 }} />
                   <Text style={styles.submitBtnText}>Submit Request</Text>
                 </TouchableOpacity>
@@ -536,7 +652,39 @@ const getStyles = (colors: any, accentColors: any, isDark: boolean) => StyleShee
   },
   container: {
     padding: 20,
-    paddingBottom: 120,
+    paddingBottom: 40,
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  toggleButton: {
+    flex: 1,
+    flexDirection: 'row',
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    gap: 6,
+  },
+  toggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  fullWidthApplyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  fullWidthApplyBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   header: {
     flexDirection: 'row',
@@ -842,6 +990,20 @@ const getStyles = (colors: any, accentColors: any, isDark: boolean) => StyleShee
     padding: 12,
     fontSize: 14,
     marginBottom: 16,
+  },
+  datePickerBtn: {
+    backgroundColor: colors.inputBg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  datePickerText: {
+    color: colors.text,
+    fontSize: 14,
   },
   textArea: {
     height: 80,

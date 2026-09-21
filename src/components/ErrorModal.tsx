@@ -42,12 +42,12 @@ export const ErrorModal: React.FC<ErrorModalProps> = ({
             },
           ]}
         >
-          <View style={[styles.iconContainer, { backgroundColor: accentColors.danger + '20' }]}>
-            <Ionicons name="alert-circle" size={32} color={accentColors.danger} />
+          <View style={[styles.iconContainer, { backgroundColor: '#ef444420' }]}>
+            <Ionicons name="alert-circle" size={32} color="#ef4444" />
           </View>
           
           <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-          <Text style={[styles.message, { color: colors.subText }]}>{message}</Text>
+          <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>
 
           <TouchableOpacity
             style={[styles.button, { backgroundColor: accentColors.primary }]}

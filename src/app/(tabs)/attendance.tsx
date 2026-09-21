@@ -62,6 +62,10 @@ const ATTENDANCE_SETUP_QUERY = `
       logoutDistance
       status
       workedHours
+      checkInSelfieUrl
+      checkOutSelfieUrl
+      faceMatchScore
+      faceVerified
     }
   }
 `;
@@ -136,6 +140,10 @@ interface AttendanceSetupData {
     logoutDistance: number | null;
     status: string | null;
     workedHours: number | null;
+    checkInSelfieUrl?: string | null;
+    checkOutSelfieUrl?: string | null;
+    faceMatchScore?: number | null;
+    faceVerified?: boolean | null;
   }>;
 }
 
@@ -598,6 +606,10 @@ export default function AttendanceScreen() {
         currentLoginTime={todayRecord?.loginTime}
         currentLogoutTime={todayRecord?.logoutTime}
         attendanceDate={todayRecord?.attendanceDate || todayDateLabel}
+        checkInSelfieUrl={todayRecord?.checkInSelfieUrl}
+        checkOutSelfieUrl={todayRecord?.checkOutSelfieUrl}
+        faceMatchScore={todayRecord?.faceMatchScore}
+        faceVerified={todayRecord?.faceVerified}
         onClose={() => setIsCorrectionModalOpen(false)}
         onSuccess={() => fetchSetupData(true)}
       />
@@ -879,7 +891,7 @@ export default function AttendanceScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Collapsible Radar View */}
+          {/* Collapsible Radar & Map View */}
           {showMap && (
             <AttendanceRadar
               isWithin={isWithinGeofence}
@@ -888,6 +900,8 @@ export default function AttendanceScreen() {
               officeName={office?.name || 'Central Office'}
               latitude={currentCoords?.latitude}
               longitude={currentCoords?.longitude}
+              officeLatitude={office?.latitude}
+              officeLongitude={office?.longitude}
             />
           )}
 

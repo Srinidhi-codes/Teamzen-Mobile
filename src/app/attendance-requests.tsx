@@ -8,13 +8,15 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Image,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAppTheme } from '../context/ThemeContext';
 import ScreenHeader from '../components/ScreenHeader';
-import { graphqlRequest } from '../services/api';
+import { graphqlRequest, getAbsoluteUrl } from '../services/api';
 import AttendanceCorrectionModal from '../components/AttendanceCorrectionModal';
 
 interface AttendanceRecordSummary {
@@ -23,6 +25,10 @@ interface AttendanceRecordSummary {
   loginTime?: string | null;
   logoutTime?: string | null;
   status?: string | null;
+  checkInSelfieUrl?: string | null;
+  checkOutSelfieUrl?: string | null;
+  faceMatchScore?: number | null;
+  faceVerified?: boolean | null;
 }
 
 interface UserSummary {
@@ -70,6 +76,10 @@ const GET_ATTENDANCE_CORRECTIONS = `
           loginTime
           logoutTime
           status
+          checkInSelfieUrl
+          checkOutSelfieUrl
+          faceMatchScore
+          faceVerified
         }
         requestedBy {
           id
@@ -113,6 +123,7 @@ export default function AttendanceRequestsScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCancelling, setIsCancelling] = useState<string | null>(null);
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   const fetchRequests = useCallback(
     async (showLoader = true) => {
@@ -264,6 +275,52 @@ export default function AttendanceRequestsScreen() {
           <Text style={[styles.reasonText, { color: colors.text }]}>"{item.reason}"</Text>
         </View>
 
+        {/* Captured Face Verification Selfies */}
+        {(item.attendanceRecord?.checkInSelfieUrl || item.attendanceRecord?.checkOutSelfieUrl) ? (
+          <View style={[styles.selfieBox, { backgroundColor: isDark ? '#0b1626' : '#f8fafc', borderColor: colors.borderLight }]}>
+            <View style={styles.selfieTitleRow}>
+              <Ionicons name="camera-outline" size={13} color={accentColors.primary} />
+              <Text style={[styles.selfieTitle, { color: colors.textSecondary }]}>Captured Attendance Selfies</Text>
+              {item.attendanceRecord?.faceVerified && (
+                <View style={styles.verifiedTag}>
+                  <Ionicons name="checkmark-circle" size={10} color="#10b981" />
+                  <Text style={styles.verifiedTagText}>
+                    Face Verified{item.attendanceRecord.faceMatchScore ? ` · ${Number(item.attendanceRecord.faceMatchScore).toFixed(2)}` : ''}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.selfieThumbsRow}>
+              {item.attendanceRecord?.checkInSelfieUrl ? (
+                <TouchableOpacity
+                  style={styles.selfieThumbCard}
+                  onPress={() => setPreviewImageUrl(getAbsoluteUrl(item.attendanceRecord?.checkInSelfieUrl))}
+                  activeOpacity={0.8}
+                >
+                  <Image
+                    source={{ uri: getAbsoluteUrl(item.attendanceRecord.checkInSelfieUrl)! }}
+                    style={styles.selfieThumb}
+                  />
+                  <Text style={[styles.selfieThumbLabel, { color: colors.textSecondary }]}>Check In</Text>
+                </TouchableOpacity>
+              ) : null}
+              {item.attendanceRecord?.checkOutSelfieUrl ? (
+                <TouchableOpacity
+                  style={styles.selfieThumbCard}
+                  onPress={() => setPreviewImageUrl(getAbsoluteUrl(item.attendanceRecord?.checkOutSelfieUrl))}
+                  activeOpacity={0.8}
+                >
+                  <Image
+                    source={{ uri: getAbsoluteUrl(item.attendanceRecord.checkOutSelfieUrl)! }}
+                    style={styles.selfieThumb}
+                  />
+                  <Text style={[styles.selfieThumbLabel, { color: colors.textSecondary }]}>Check Out</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
+
         {/* Approver Feedback / Notes */}
         {item.approvalComments ? (
           <View style={[styles.feedbackBox, { borderColor: statusCfg.border, backgroundColor: statusCfg.bg }]}>
@@ -282,12 +339,15 @@ export default function AttendanceRequestsScreen() {
 
           {isPending && (
             <TouchableOpacity
-              style={styles.cancelBtn}
+              style={[styles.cancelBtn, isCancelling === item.id && { opacity: 0.7 }]}
               onPress={() => handleCancelRequest(item)}
-              disabled={isCancelling === item.id}
+              disabled={isCancelling !== null}
             >
               {isCancelling === item.id ? (
-                <ActivityIndicator size="small" color="#ef4444" />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <ActivityIndicator size="small" color="#ef4444" />
+                  <Text style={styles.cancelBtnText}>Cancelling...</Text>
+                </View>
               ) : (
                 <>
                   <Ionicons name="trash-outline" size={14} color="#ef4444" style={{ marginRight: 4 }} />
@@ -457,6 +517,30 @@ export default function AttendanceRequestsScreen() {
           }
         />
       )}
+
+      {/* Full-screen Image Preview Modal */}
+      <Modal
+        visible={previewImageUrl !== null}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setPreviewImageUrl(null)}
+      >
+        <View style={styles.imageModalOverlay}>
+          <TouchableOpacity
+            style={styles.imageModalCloseBtn}
+            onPress={() => setPreviewImageUrl(null)}
+          >
+            <Ionicons name="close" size={26} color="#ffffff" />
+          </TouchableOpacity>
+          {previewImageUrl && (
+            <Image
+              source={{ uri: previewImageUrl }}
+              style={styles.imageModalFull}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -640,6 +724,76 @@ const getStyles = (colors: any, accentColors: any, isDark: boolean) =>
       color: '#ef4444',
       fontSize: 11,
       fontWeight: '700',
+    },
+    selfieBox: {
+      marginTop: 10,
+      padding: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+    },
+    selfieTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 8,
+    },
+    selfieTitle: {
+      fontSize: 11,
+      fontWeight: '700',
+      flex: 1,
+    },
+    verifiedTag: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
+      backgroundColor: '#10b98115',
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6,
+    },
+    verifiedTagText: {
+      color: '#10b981',
+      fontSize: 10,
+      fontWeight: '700',
+    },
+    selfieThumbsRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    selfieThumbCard: {
+      alignItems: 'center',
+      borderRadius: 8,
+      overflow: 'hidden',
+    },
+    selfieThumb: {
+      width: 56,
+      height: 56,
+      borderRadius: 8,
+      backgroundColor: '#1e293b',
+    },
+    selfieThumbLabel: {
+      fontSize: 10,
+      fontWeight: '600',
+      marginTop: 4,
+    },
+    imageModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.94)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    imageModalCloseBtn: {
+      position: 'absolute',
+      top: 50,
+      right: 20,
+      zIndex: 10,
+      padding: 8,
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      borderRadius: 20,
+    },
+    imageModalFull: {
+      width: '90%',
+      height: '75%',
     },
     paginationRow: {
       flexDirection: 'row',

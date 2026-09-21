@@ -1,13 +1,10 @@
 import { Platform } from 'react-native';
 import { AuthService } from './auth';
 
+const RENDER_BACKEND_URL = 'https://teamzen-server.onrender.com';
+
 const getBaseUrl = (): string => {
-  if (__DEV__) {
-    // Android emulator uses 10.0.2.2 to reach the host machine
-    // iOS simulator & physical devices need the LAN IP of the dev machine
-    return Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://192.168.31.184:8000';
-  }
-  return 'http://192.168.31.184:8000'; // TODO: replace with production domain
+  return RENDER_BACKEND_URL;
 };
 
 export const API_URL = getBaseUrl();
@@ -286,3 +283,9 @@ export async function authenticatedFetch(
 
   return response;
 }
+
+export const getAbsoluteUrl = (url?: string | null): string | null => {
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+};

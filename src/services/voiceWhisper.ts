@@ -1,4 +1,6 @@
-import { API_URL, authenticatedFetch } from './api';
+import { API_URL, getValidAccessToken } from './api';
+import * as FileSystem from 'expo-file-system/legacy';
+import { FileSystemUploadType } from 'expo-file-system/legacy';
 
 export class VoiceWhisperService {
   private recorder: any = null;
@@ -33,7 +35,7 @@ export class VoiceWhisperService {
     }
   }
 
-  async startRecording(): Promise<boolean> {
+  async startRecording(onAutoStop?: () => void): Promise<boolean> {
     try {
       const audio = await this.getAudioModule();
       if (!audio) {
@@ -87,7 +89,30 @@ export class VoiceWhisperService {
       }
 
       if (typeof recorderInstance.prepareToRecordAsync === 'function') {
-        await recorderInstance.prepareToRecordAsync();
+        const prepareOptions = { ...presets, isMeteringEnabled: true };
+        await recorderInstance.prepareToRecordAsync(prepareOptions);
+      }
+
+      if (typeof recorderInstance.setOnRecordingStatusUpdate === 'function') {
+        let silentCounter = 0;
+        if (typeof recorderInstance.setProgressUpdateIntervalAsync === 'function') {
+          await recorderInstance.setProgressUpdateIntervalAsync(200);
+        }
+        recorderInstance.setOnRecordingStatusUpdate((status: any) => {
+          if (status.isRecording && status.metering !== undefined) {
+            // -45 dB is fairly quiet; adjust threshold if needed
+            if (status.metering < -45) {
+              silentCounter++;
+              if (silentCounter > 12) { // 12 * 200ms = 2.4 seconds of silence
+                if (onAutoStop && this.isRecordingActive) {
+                  onAutoStop();
+                }
+              }
+            } else {
+              silentCounter = 0;
+            }
+          }
+        });
       }
 
       if (typeof recorderInstance.recordAsync === 'function') {
@@ -136,24 +161,28 @@ export class VoiceWhisperService {
         throw new Error('No audio recording generated');
       }
 
-      const formData = new FormData();
-      formData.append('file', {
-        uri,
-        name: 'voice_recording.m4a',
-        type: 'audio/m4a',
-      } as any);
+      const token = await getValidAccessToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
 
-      const response = await authenticatedFetch(`${API_URL}/api/ai/transcribe/`, {
-        method: 'POST',
-        body: formData,
+      const response = await FileSystem.uploadAsync(`${API_URL}/api/ai/transcribe/`, uri, {
+        fieldName: 'file',
+        httpMethod: 'POST',
+        uploadType: FileSystemUploadType.MULTIPART,
+        headers,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+      if (response.status !== 200) {
+        let errorData: any = {};
+        try {
+          errorData = JSON.parse(response.body);
+        } catch(e) {}
         throw new Error(errorData.error || 'Speech transcription failed');
       }
 
-      const data = await response.json();
+      const data = JSON.parse(response.body);
       return (data.text || '').trim();
     } catch (err) {
       console.error('Error during voice transcription:', err);

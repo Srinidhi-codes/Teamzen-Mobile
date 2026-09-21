@@ -68,7 +68,14 @@ export async function descriptorFromPhoto(
     }),
   });
 
-  const data = await response.json();
+  const rawText = await response.text();
+  let data: any;
+  try {
+    data = JSON.parse(rawText);
+  } catch (e) {
+    console.error(`Face extraction endpoint non-JSON response (${response.status}):`, rawText.slice(0, 300));
+    throw new Error(`Server error (${response.status}). Please try again.`);
+  }
 
   if (!response.ok || data.error) {
     throw new Error(data.error || 'Face detection failed. Ensure good lighting and face the camera.');

@@ -437,23 +437,17 @@ export default function DashboardScreen() {
                 </TouchableOpacity>
 
                 <View style={styles.headerActions}>
-                  {/* Notifications */}
+                  {/* Notifications - background removed */}
                   <TouchableOpacity
-                    style={[
-                      styles.headerIconBtn,
-                      {
-                        backgroundColor: heroConfig.dark || isDark
-                          ? 'rgba(255, 255, 255, 0.16)'
-                          : 'rgba(255, 255, 255, 0.85)',
-                      },
-                    ]}
-                    activeOpacity={0.75}
+                    style={styles.headerTransparentBtn}
+                    activeOpacity={0.7}
                     onPress={() => router.push('/notifications')}
                     accessibilityLabel="View Notifications"
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
                     <Ionicons
                       name={unreadCount > 0 ? 'notifications' : 'notifications-outline'}
-                      size={18}
+                      size={22}
                       color={heroConfig.dark || isDark ? '#ffffff' : '#0f172a'}
                     />
                     {unreadCount > 0 && (
@@ -465,24 +459,18 @@ export default function DashboardScreen() {
                     )}
                   </TouchableOpacity>
 
-                  {/* Dark/Light Mode toggle */}
+                  {/* Dark/Light Mode toggle - redesigned with seamless background & radiant styling */}
                   <TouchableOpacity
-                    style={[
-                      styles.headerIconBtn,
-                      {
-                        backgroundColor: heroConfig.dark || isDark
-                          ? 'rgba(255, 255, 255, 0.16)'
-                          : 'rgba(255, 255, 255, 0.85)',
-                      },
-                    ]}
-                    activeOpacity={0.75}
+                    style={styles.headerTransparentBtn}
+                    activeOpacity={0.7}
                     onPress={() => setThemeMode(isDark ? 'light' : 'dark')}
                     accessibilityLabel="Toggle Theme"
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
                     <Ionicons
                       name={isDark ? 'sunny' : 'moon'}
-                      size={18}
-                      color={isDark ? '#f59e0b' : '#3b82f6'}
+                      size={22}
+                      color={isDark ? '#fbbf24' : (heroConfig.dark ? '#ffffff' : '#0f172a')}
                     />
                   </TouchableOpacity>
 
@@ -1139,13 +1127,11 @@ export default function DashboardScreen() {
             <View style={styles.floatingAiIconBg}>
               <Image
                 source={require('../../../assets/images/assistant-mark.webp')}
-                style={{ width: 18, height: 18, resizeMode: 'contain', borderRadius: 4 }}
+                style={{ width: 55, height: 55, resizeMode: 'contain', borderRadius: 8 }}
                 fadeDuration={0}
               />
             </View>
-            <Text style={styles.floatingAiText}>Ask AI Assistant</Text>
           </View>
-          <View style={styles.floatingAiPulseDot} />
         </LinearGradient>
       </TouchableOpacity>
 
@@ -1205,26 +1191,35 @@ const getStyles = (colors: any, accentColors: any, isDark: boolean) =>
       borderWidth: 1,
       borderColor: 'rgba(255, 255, 255, 0.18)',
     },
+    headerTransparentBtn: {
+      width: 38,
+      height: 38,
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
+    },
     headerActions: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
+      gap: 6,
     },
     heroNotifBadge: {
       position: 'absolute',
-      top: -4,
-      right: -4,
+      top: 1,
+      right: 1,
       backgroundColor: '#ef4444',
-      borderRadius: 10,
-      minWidth: 18,
-      height: 18,
+      borderRadius: 9,
+      minWidth: 17,
+      height: 17,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 4,
+      paddingHorizontal: 3,
+      borderWidth: 1.5,
+      borderColor: isDark ? '#0f172a' : '#ffffff',
     },
     heroNotifBadgeText: {
       color: '#ffffff',
-      fontSize: 10,
+      fontSize: 9,
       fontWeight: '800',
     },
     avatarBtn: {
@@ -1763,7 +1758,7 @@ const getStyles = (colors: any, accentColors: any, isDark: boolean) =>
       right: 20,
       borderRadius: 28,
       shadowColor: '#7dd3fc',
-      shadowOffset: { width: 0, height: 6 },
+      shadowOffset: { width: 3, height: 10 },
       shadowOpacity: 0.4,
       shadowRadius: 10,
       elevation: 8,
@@ -1781,8 +1776,8 @@ const getStyles = (colors: any, accentColors: any, isDark: boolean) =>
       borderColor: 'rgba(255, 255, 255, 0.5)',
     },
     floatingAiIconBg: {
-      width: 18,
-      height: 18,
+      width: 10,
+      height: 25,
       borderRadius: 14,
       backgroundColor: 'rgba(255, 255, 255, 0.7)',
       alignItems: 'center',
@@ -1794,10 +1789,5 @@ const getStyles = (colors: any, accentColors: any, isDark: boolean) =>
       fontWeight: '700',
       letterSpacing: 0.2,
     },
-    floatingAiPulseDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: '#0284c7',
-    },
+
   });

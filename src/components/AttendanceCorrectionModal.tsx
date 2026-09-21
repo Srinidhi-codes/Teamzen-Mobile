@@ -11,10 +11,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../context/ThemeContext';
-import { graphqlRequest } from '../services/api';
+import { graphqlRequest, getAbsoluteUrl } from '../services/api';
+import moment from 'moment';
 
 const REQUEST_CORRECTION_MUTATION = `
   mutation RequestAttendanceCorrection($input: AttendanceCorrectionInput!) {
@@ -34,6 +36,10 @@ interface Props {
   currentLoginTime?: string | null;
   currentLogoutTime?: string | null;
   attendanceDate?: string | null;
+  checkInSelfieUrl?: string | null;
+  checkOutSelfieUrl?: string | null;
+  faceMatchScore?: number | null;
+  faceVerified?: boolean | null;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -44,6 +50,10 @@ export default function AttendanceCorrectionModal({
   currentLoginTime,
   currentLogoutTime,
   attendanceDate,
+  checkInSelfieUrl,
+  checkOutSelfieUrl,
+  faceMatchScore,
+  faceVerified,
   onClose,
   onSuccess,
 }: Props) {
@@ -52,6 +62,7 @@ export default function AttendanceCorrectionModal({
   const [logoutTime, setLogoutTime] = useState(currentLogoutTime || '18:00:00');
   const [reason, setReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // Sync initial values when modal opens
   React.useEffect(() => {
@@ -122,11 +133,13 @@ export default function AttendanceCorrectionModal({
               <View>
                 <Text style={styles.title}>Request Correction</Text>
                 <Text style={styles.subtitle}>
-                  {attendanceDate ? `For date: ${attendanceDate}` : "Today's Attendance"}
+                  {attendanceDate
+                    ? `Date: ${moment(attendanceDate).isValid() ? moment(attendanceDate).format('DD/MM/YYYY') : attendanceDate}`
+                    : "Today's Attendance"}
                 </Text>
               </View>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn} disabled={isSubmitting}>
               <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
@@ -150,6 +163,46 @@ export default function AttendanceCorrectionModal({
                 </View>
               </View>
             </View>
+
+            {/* Captured Verification Selfies (Web-portal parity) */}
+            {(checkInSelfieUrl || checkOutSelfieUrl) ? (
+              <View style={styles.selfieCardBox}>
+                <View style={styles.selfieHeaderRow}>
+                  <Ionicons name="camera-outline" size={14} color={accentColors.primary} />
+                  <Text style={[styles.selfieHeaderTitle, { color: colors.textSecondary }]}>Captured Attendance Verification</Text>
+                  {faceVerified && (
+                    <View style={styles.verifiedTag}>
+                      <Ionicons name="checkmark-circle" size={11} color="#10b981" />
+                      <Text style={styles.verifiedTagText}>
+                        Face Verified{faceMatchScore ? ` · ${Number(faceMatchScore).toFixed(2)}` : ''}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <View style={styles.selfieCardsRow}>
+                  {checkInSelfieUrl ? (
+                    <TouchableOpacity
+                      style={styles.selfieThumbCard}
+                      onPress={() => setPreviewImage(getAbsoluteUrl(checkInSelfieUrl))}
+                      activeOpacity={0.8}
+                    >
+                      <Image source={{ uri: getAbsoluteUrl(checkInSelfieUrl)! }} style={styles.selfieThumbImg} />
+                      <Text style={[styles.selfieThumbLabel, { color: colors.textSecondary }]}>Check In</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  {checkOutSelfieUrl ? (
+                    <TouchableOpacity
+                      style={styles.selfieThumbCard}
+                      onPress={() => setPreviewImage(getAbsoluteUrl(checkOutSelfieUrl))}
+                      activeOpacity={0.8}
+                    >
+                      <Image source={{ uri: getAbsoluteUrl(checkOutSelfieUrl)! }} style={styles.selfieThumbImg} />
+                      <Text style={[styles.selfieThumbLabel, { color: colors.textSecondary }]}>Check Out</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              </View>
+            ) : null}
 
             {/* Corrected Login Time */}
             <View style={styles.fieldGroup}>
@@ -209,7 +262,7 @@ export default function AttendanceCorrectionModal({
             {/* Actions */}
             <View style={styles.actionsRow}>
               <TouchableOpacity
-                style={styles.cancelBtn}
+                style={[styles.cancelBtn, isSubmitting && { opacity: 0.5 }]}
                 onPress={onClose}
                 disabled={isSubmitting}
               >
@@ -233,6 +286,23 @@ export default function AttendanceCorrectionModal({
             </View>
           </ScrollView>
         </View>
+
+        {/* Full Image Preview Modal */}
+        <Modal
+          visible={previewImage !== null}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setPreviewImage(null)}
+        >
+          <View style={styles.imageModalOverlay}>
+            <TouchableOpacity style={styles.imageModalCloseBtn} onPress={() => setPreviewImage(null)}>
+              <Ionicons name="close" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            {previewImage && (
+              <Image source={{ uri: previewImage }} style={styles.imageModalFull} resizeMode="contain" />
+            )}
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -423,5 +493,82 @@ const getStyles = (colors: any, accentColors: any, isDark: boolean) =>
       fontSize: 14,
       fontWeight: '700',
       color: '#ffffff',
+    },
+    selfieCardBox: {
+      backgroundColor: colors.backgroundCard,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 12,
+      marginBottom: 16,
+    },
+    selfieHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 10,
+    },
+    selfieHeaderTitle: {
+      fontSize: 12,
+      fontWeight: '600',
+      flex: 1,
+    },
+    verifiedTag: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: 'rgba(16, 185, 129, 0.12)',
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+      borderRadius: 8,
+    },
+    verifiedTagText: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: '#10b981',
+    },
+    selfieCardsRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    selfieThumbCard: {
+      alignItems: 'center',
+      gap: 6,
+    },
+    selfieThumbImg: {
+      width: 72,
+      height: 72,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+    },
+    selfieThumbLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+    },
+    imageModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.9)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 16,
+    },
+    imageModalCloseBtn: {
+      position: 'absolute',
+      top: 48,
+      right: 20,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 50,
+    },
+    imageModalFull: {
+      width: '92%',
+      height: '75%',
+      borderRadius: 16,
     },
   });

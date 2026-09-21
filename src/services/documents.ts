@@ -1,4 +1,7 @@
-import { API_URL, graphqlRequest, authenticatedFetch } from './api';
+import * as FileSystem from 'expo-file-system/legacy';
+import { FileSystemUploadType } from 'expo-file-system/legacy';
+import { AuthService } from './auth';
+import { API_URL, graphqlRequest } from './api';
 
 export interface IssuedDocumentItem {
   id: string;
@@ -119,36 +122,42 @@ export const DocumentService = {
     category?: string;
     title?: string;
   }): Promise<boolean> {
-    const formData = new FormData();
-    formData.append('file', {
-      uri: params.fileUri,
-      name: params.fileName,
-      type: params.mimeType || 'application/pdf',
-    } as any);
+    const uploadUrl = `${API_URL}/api/documents/upload/`;
+    const token = await AuthService.getAccessToken();
 
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const parameters: Record<string, string> = {};
     if (params.requestId) {
-      formData.append('request_id', params.requestId);
+      parameters['request_id'] = params.requestId;
     }
     if (params.category) {
-      formData.append('category', params.category);
+      parameters['category'] = params.category;
     }
     if (params.title) {
-      formData.append('title', params.title);
+      parameters['title'] = params.title;
     }
 
-    const uploadUrl = `${API_URL}/api/documents/upload/`;
-    const response = await authenticatedFetch(uploadUrl, {
-      method: 'POST',
-      body: formData,
+    const response = await FileSystem.uploadAsync(uploadUrl, params.fileUri, {
+      httpMethod: 'POST',
+      uploadType: FileSystemUploadType.MULTIPART,
+      fieldName: 'file',
+      parameters,
+      headers,
+      mimeType: params.mimeType || 'application/pdf',
     });
 
-    if (!response.ok) {
-      const text = await response.text();
+    if (response.status < 200 || response.status >= 300) {
       try {
-        const json = JSON.parse(text);
-        throw new Error(json.error || 'Upload failed');
-      } catch {
-        throw new Error(text || 'Upload failed');
+        const json = JSON.parse(response.body);
+        throw new Error(json.error || json.message || 'Upload failed');
+      } catch (err: any) {
+        throw new Error(err.message || response.body || 'Upload failed');
       }
     }
 
