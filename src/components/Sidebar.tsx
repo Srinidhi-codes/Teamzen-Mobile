@@ -36,7 +36,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { signOut } = useAuth();
   const { isDark, colors, accentColors } = useAppTheme();
   const [unreadCount, setUnreadCount] = React.useState(0);
-  const [isOnboardingCompleted, setIsOnboardingCompleted] = React.useState(false);
+  const [hasActiveOnboarding, setHasActiveOnboarding] = React.useState(false);
   const [hasSeenAppTour, setHasSeenAppTour] = React.useState(false);
   
   const insets = useSafeAreaInsets();
@@ -56,15 +56,21 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     if (isOpen) {
       // Check onboarding tour and HR status
       OnboardingStorage.hasSeenOnboarding().then((seen) => setHasSeenAppTour(seen));
-      graphqlRequest<{ myOnboarding?: { status?: string; progressPct?: number } }>(
-        `query CheckOnboarding { myOnboarding { status progressPct } }`
+      graphqlRequest<{ myOnboarding?: { id?: string; status?: string; progressPct?: number } }>(
+        `query CheckOnboarding { myOnboarding { id status progressPct } }`
       ).then((res) => {
-        const status = res?.myOnboarding?.status?.toLowerCase();
-        const pct = res?.myOnboarding?.progressPct;
-        if (status === 'completed' || (pct !== undefined && pct >= 100)) {
-          setIsOnboardingCompleted(true);
+        const ob = res?.myOnboarding;
+        const status = (ob?.status || '').toLowerCase();
+        const pct = ob?.progressPct ?? 0;
+        // Only show if onboarding exists, is NOT completed, and progress is < 100%
+        if (ob && ob.id && status !== 'completed' && pct < 100) {
+          setHasActiveOnboarding(true);
+        } else {
+          setHasActiveOnboarding(false);
         }
-      }).catch(() => {});
+      }).catch(() => {
+        setHasActiveOnboarding(false);
+      });
     }
   }, [isOpen]);
 
@@ -214,7 +220,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           {renderNavItem('people-outline', 'My Team', '/team', ['/team'])}
           {renderNavItem('folder-outline', 'Documents', '/documents', ['/documents'])}
           {renderNavItem('receipt-outline', 'Payroll', '/payroll', ['/payroll'])}
-          {!isOnboardingCompleted && renderNavItem('checkbox-outline', 'My Onboarding', '/employee-onboarding', ['/employee-onboarding'])}
+          {hasActiveOnboarding && renderNavItem('checkbox-outline', 'My Onboarding', '/employee-onboarding', ['/employee-onboarding'])}
           {renderNavItem('person-outline', 'Profile', '/profile', ['/profile'])}
           {renderNavItem(
             'notifications-outline',

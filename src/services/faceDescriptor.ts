@@ -1,3 +1,4 @@
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system';
 import { API_URL } from './api';
 import { AuthService } from './auth';
@@ -44,7 +45,25 @@ export async function descriptorFromPhoto(
   options: { verify?: boolean; enroll?: boolean } = {}
 ): Promise<FaceExtractionResult> {
   let photoBase64 = base64Data;
-  if (!photoBase64) {
+
+  // Downscale image to width 480 (maintaining aspect ratio) and compress to 0.75 JPEG
+  // Drastically prevents memory spikes & 502 Bad Gateway OOM errors on server
+  if (uri) {
+    try {
+      const manipulated = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 480 } }],
+        { compress: 0.75, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+      if (manipulated.base64) {
+        photoBase64 = manipulated.base64;
+      }
+    } catch (e) {
+      console.warn('ImageManipulator error, falling back:', e);
+    }
+  }
+
+  if (!photoBase64 && uri) {
     photoBase64 = await FileSystem.readAsStringAsync(uri, {
       encoding: 'base64',
     });
@@ -87,7 +106,7 @@ export async function descriptorFromPhoto(
     verified: data.verified,
     distance: data.distance,
     matchScore: data.match_score,
-    imageBase64: photoBase64,
+    imageBase64: photoBase64 || '',
   };
 }
 

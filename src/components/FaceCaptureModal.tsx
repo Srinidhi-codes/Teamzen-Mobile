@@ -58,11 +58,10 @@ export default function FaceCaptureModal({
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
         skipProcessing: false,
-        base64: true,
       });
       if (!photo?.uri) throw new Error("Capture failed");
 
-      const result = await descriptorFromPhoto(photo.uri, photo.base64, {
+      const result = await descriptorFromPhoto(photo.uri, null, {
         verify: mode === "verify",
         enroll: mode === "enroll",
       });

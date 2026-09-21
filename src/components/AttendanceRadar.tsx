@@ -62,7 +62,7 @@ export default function AttendanceRadar({
 }: Props) {
   const { colors, accentColors, isDark } = useAppTheme();
   const [zoom, setZoom] = useState(16);
-  const [mapStyle, setMapStyle] = useState<'streets' | 'dark'>(isDark ? 'dark' : 'streets');
+  const [mapStyle, setMapStyle] = useState<'streets' | 'satellite'>('streets');
 
   // Center on office by default, or user if office not available
   const centerLat = officeLatitude ?? latitude ?? 12.9716;
@@ -106,11 +106,6 @@ export default function AttendanceRadar({
     const subX = (rawX - centerTileX) * 256;
     const subY = (rawY - centerTileY) * 256;
 
-    // Tile server template
-    // CartoDB Voyager (streets) and Dark Matter (dark) @2x retina tiles
-    const stylePath = mapStyle === 'dark' ? 'dark_all' : 'voyager';
-    const tileBase = `https://a.basemaps.cartocdn.com/rastertiles/${stylePath}/${zoom}`;
-
     const tiles: Array<{ x: number; y: number; url: string; left: number; top: number; key: string }> = [];
 
     const mapContainerWidth = SCREEN_WIDTH - 40;
@@ -122,13 +117,21 @@ export default function AttendanceRadar({
       for (let dy = -1; dy <= 1; dy++) {
         const tx = centerTileX + dx;
         const ty = centerTileY + dy;
+        
+        // Zero API key required tile providers:
+        // Streets: Official OpenStreetMap tiles
+        // Satellite: Esri World Imagery tiles
+        const tileUrl = mapStyle === 'satellite'
+          ? `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${ty}/${tx}`
+          : `https://tile.openstreetmap.org/${zoom}/${tx}/${ty}.png`;
+
         tiles.push({
           x: tx,
           y: ty,
-          url: `${tileBase}/${tx}/${ty}@2x.png`,
+          url: tileUrl,
           left: originX + dx * 256,
           top: originY + dy * 256,
-          key: `${zoom}-${tx}-${ty}`,
+          key: `${mapStyle}-${zoom}-${tx}-${ty}`,
         });
       }
     }
@@ -172,7 +175,7 @@ export default function AttendanceRadar({
           {mapData.tiles.map((tile) => (
             <Image
               key={tile.key}
-              source={{ uri: tile.url }}
+              source={{ uri: tile.url, headers: { 'User-Agent': 'TeamZenApp/1.0' } }}
               style={[
                 styles.mapTile,
                 {
@@ -263,11 +266,11 @@ export default function AttendanceRadar({
         <View style={styles.mapTopControls}>
           <TouchableOpacity
             style={styles.pillControl}
-            onPress={() => setMapStyle((s) => (s === 'streets' ? 'dark' : 'streets'))}
+            onPress={() => setMapStyle((s) => (s === 'streets' ? 'satellite' : 'streets'))}
             activeOpacity={0.8}
           >
-            <Ionicons name={mapStyle === 'dark' ? 'moon' : 'sunny'} size={13} color={colors.text} />
-            <Text style={styles.pillControlText}>{mapStyle === 'dark' ? 'Dark' : 'Streets'}</Text>
+            <Ionicons name={mapStyle === 'satellite' ? 'earth' : 'map'} size={13} color={colors.text} />
+            <Text style={styles.pillControlText}>{mapStyle === 'satellite' ? 'Satellite' : 'Streets'}</Text>
           </TouchableOpacity>
 
           {officeLatitude && officeLongitude && (
@@ -280,7 +283,7 @@ export default function AttendanceRadar({
 
         {/* Map Attribution Bar */}
         <View style={styles.attributionBadge}>
-          <Text style={styles.attributionText}>© OpenStreetMap © CARTO</Text>
+          <Text style={styles.attributionText}>{mapStyle === 'satellite' ? '© Esri Imagery' : '© OpenStreetMap'}</Text>
         </View>
       </View>
 

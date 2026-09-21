@@ -616,6 +616,34 @@ export default function AttendanceScreen() {
 
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
+      {/* Pinned Screen Header */}
+      <ScreenHeader
+        title="Attendance"
+        subtitle={office?.name ? `Office: ${office.name}` : 'Mark check-in and check-out today'}
+        showBack={true}
+        onBackPress={() => {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.push('/(tabs)');
+          }
+        }}
+        showNotifications={false}
+        showMenu={true}
+        onMenuPress={() => setIsSidebarOpen(true)}
+        rightElement={
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <TouchableOpacity
+              style={styles.correctionHeaderBtn}
+              onPress={() => router.push('/attendance-requests')}
+            >
+              <Ionicons name="document-text-outline" size={15} color={accentColors.primary} />
+              <Text style={styles.correctionBtnText}>Requests</Text>
+            </TouchableOpacity>
+          </View>
+        }
+      />
+
       {/* Main Scroll Content */}
       <ScrollView
         contentContainerStyle={styles.container}
@@ -628,26 +656,6 @@ export default function AttendanceScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Header Bar */}
-        <ScreenHeader
-          title="Attendance"
-          subtitle={office?.name ? `Office: ${office.name}` : 'Mark check-in and check-out today'}
-          showBack={true}
-          showNotifications={false}
-          showMenu={false}
-          onMenuPress={() => setIsSidebarOpen(true)}
-          rightElement={
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <TouchableOpacity
-                style={styles.correctionHeaderBtn}
-                onPress={() => router.push('/attendance-requests')}
-              >
-                <Ionicons name="document-text-outline" size={15} color={accentColors.primary} />
-                <Text style={styles.correctionBtnText}>Requests</Text>
-              </TouchableOpacity>
-            </View>
-          }
-        />
 
         {/* Face Attendance Alert Banner */}
         {faceEnabled && (
