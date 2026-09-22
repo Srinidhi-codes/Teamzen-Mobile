@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "Teamzen",
     "owner": "teamzen",
     "slug": "mobile",
     "version": "1.0.0",
@@ -89,14 +89,14 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "f02bf02a-9af2-4900-8925-3f4541a2974a"
+        "projectId": "09de1010-e46d-4c6a-8dcd-836cf050116b"
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/f02bf02a-9af2-4900-8925-3f4541a2974a"
+      "url": "https://u.expo.dev/09de1010-e46d-4c6a-8dcd-836cf050116b"
     }
   }
 }
