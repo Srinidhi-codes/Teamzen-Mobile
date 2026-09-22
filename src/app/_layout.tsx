@@ -95,13 +95,18 @@ function RootLayoutNav() {
 }
 
 import { ToastProvider } from '../context/ToastContext';
+import { TourProvider } from '../context/TourContext';
+import InteractiveAppTour from '../components/InteractiveAppTour';
 
 export default function RootLayout() {
   return (
     <AuthProvider>
       <AppThemeProvider>
         <ToastProvider>
-          <RootLayoutNav />
+          <TourProvider>
+            <RootLayoutNav />
+            <InteractiveAppTour />
+          </TourProvider>
         </ToastProvider>
       </AppThemeProvider>
     </AuthProvider>

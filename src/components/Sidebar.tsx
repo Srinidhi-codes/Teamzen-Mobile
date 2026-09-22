@@ -21,6 +21,7 @@ import { NotificationService, subscribeUnreadCount } from '../services/notificat
 import { OnboardingStorage } from '../utils/onboardingStorage';
 import { graphqlRequest } from '../services/api';
 import BrandLogo from './BrandLogo';
+import { useTour } from '../context/TourContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window') || { width: 375 };
 const SIDEBAR_WIDTH = 280;
@@ -35,6 +36,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { signOut } = useAuth();
   const { isDark, colors, accentColors } = useAppTheme();
+  const { startTour } = useTour();
   const [unreadCount, setUnreadCount] = React.useState(0);
   const [hasActiveOnboarding, setHasActiveOnboarding] = React.useState(false);
   const [hasSeenAppTour, setHasSeenAppTour] = React.useState(false);
@@ -232,7 +234,23 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           )}
 
           <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>App Guide</Text>
-          {renderNavItem('compass-outline', 'App Tour', '/onboarding', ['/onboarding'])}
+          <TouchableOpacity
+            style={styles.navItem}
+            onPress={() => {
+              onClose();
+              startTour();
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="compass-outline"
+              size={20}
+              color={colors.textSecondary}
+              style={styles.navIcon}
+            />
+            <Text style={[styles.navLabel, { color: colors.textSecondary }]}>App Tour</Text>
+          </TouchableOpacity>
+          {renderNavItem('information-circle-outline', 'About App', '/onboarding', ['/onboarding'])}
 
           <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Corporate Portals</Text>
           {renderNavItem('book-outline', 'Policies & Handbook', '/policies', ['/policies'])}

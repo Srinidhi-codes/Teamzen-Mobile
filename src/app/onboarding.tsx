@@ -8,6 +8,7 @@ import {
   FlatList,
   StatusBar,
   ViewToken,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -110,7 +111,7 @@ function SlideIllustration({
         ]}
       />
 
-      {/* Central emoji badge */}
+      {/* Central emoji / brand badge */}
       <View
         style={[
           styles.emojiBadge,
@@ -121,7 +122,14 @@ function SlideIllustration({
           },
         ]}
       >
-        <Text style={styles.emojiText}>{slide.emoji}</Text>
+        {slide.id === 'ai' ? (
+          <Image
+            source={require('../../assets/images/assistant-mark.webp')}
+            style={{ width: 68, height: 68, resizeMode: 'contain' }}
+          />
+        ) : (
+          <Text style={styles.emojiText}>{slide.emoji}</Text>
+        )}
       </View>
 
       {/* Floating feature chips */}
@@ -337,35 +345,25 @@ export default function OnboardingScreen() {
         })}
       />
 
-      {/* Overlay controls — above the slides */}
+      {/* Top Header: Skip button positioned at absolute top right */}
+      {!isLastSlide && (
+        <TouchableOpacity
+          style={[styles.topSkipButton, { top: insets.top + 16 }]}
+          onPress={handleSkip}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.skipText}>Skip</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Bottom controls overlay */}
       <View
         style={[
-          styles.controls,
+          styles.bottomControls,
           { paddingBottom: Math.max(insets.bottom, 24) },
         ]}
         pointerEvents="box-none"
       >
-        {/* Close button for logged in user */}
-        {isAuthenticated && (
-          <TouchableOpacity
-            style={[styles.closeButton, { top: insets.top + 16 }]}
-            onPress={handleFinish}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="close" size={20} color="#ffffff" />
-          </TouchableOpacity>
-        )}
-
-        {/* Skip button */}
-        {!isLastSlide && (
-          <TouchableOpacity
-            style={[styles.skipButton, { top: insets.top + 16 }]}
-            onPress={handleSkip}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.skipText}>Skip</Text>
-          </TouchableOpacity>
-        )}
 
         {/* Bottom bar */}
         <View style={styles.bottomBar}>
@@ -519,37 +517,31 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
 
-  // Controls overlay
-  controls: {
+  // Top skip button
+  topSkipButton: {
+    position: 'absolute',
+    right: 20,
+    zIndex: 99,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  skipText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  // Bottom controls overlay
+  bottomControls: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-  },
-  closeButton: {
-    position: 'absolute',
-    left: 24,
     zIndex: 10,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  skipButton: {
-    position: 'absolute',
-    right: 24,
-    zIndex: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  skipText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    fontWeight: '600',
   },
   bottomBar: {
     flexDirection: 'row',
