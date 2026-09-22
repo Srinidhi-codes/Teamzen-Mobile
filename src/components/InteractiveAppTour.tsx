@@ -29,14 +29,14 @@ export default function InteractiveAppTour() {
   const progressPct = ((currentStepIndex + 1) / TOUR_STEPS.length) * 100;
 
   return (
-    <Modal
-      transparent
-      visible={isTourActive}
-      animationType="fade"
-      onRequestClose={closeTour}
-      statusBarTranslucent
+    <View
+      style={[
+        StyleSheet.absoluteFill,
+        styles.overlay,
+        { zIndex: 999999, elevation: 999999 },
+      ]}
+      pointerEvents="auto"
     >
-      <View style={styles.overlay}>
         {/* Top Header bar with Skip Tour button */}
         <View style={[styles.topHeader, { top: insets.top + 12 }]}>
           <View style={styles.brandBadge}>
@@ -251,7 +251,6 @@ export default function InteractiveAppTour() {
           </View>
         </View>
       </View>
-    </Modal>
   );
 }
 

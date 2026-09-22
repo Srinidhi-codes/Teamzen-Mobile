@@ -238,7 +238,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             style={styles.navItem}
             onPress={() => {
               onClose();
-              startTour();
+              setTimeout(() => {
+                startTour();
+              }, 250);
             }}
             activeOpacity={0.7}
           >

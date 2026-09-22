@@ -79,17 +79,20 @@ function RootLayoutNav() {
   return (
     <ThemeProvider value={navTheme}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="notifications" />
-        <Stack.Screen name="attendance-requests" />
-        <Stack.Screen name="employee-onboarding" />
-        <Stack.Screen name="profile" />
-        <Stack.Screen name="payroll" />
-        <Stack.Screen name="documents" />
-        <Stack.Screen name="login" />
-      </Stack>
+      <View style={{ flex: 1, position: 'relative' }}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="notifications" />
+          <Stack.Screen name="attendance-requests" />
+          <Stack.Screen name="employee-onboarding" />
+          <Stack.Screen name="profile" />
+          <Stack.Screen name="payroll" />
+          <Stack.Screen name="documents" />
+          <Stack.Screen name="login" />
+        </Stack>
+        <InteractiveAppTour />
+      </View>
     </ThemeProvider>
   );
 }
@@ -105,7 +108,6 @@ export default function RootLayout() {
         <ToastProvider>
           <TourProvider>
             <RootLayoutNav />
-            <InteractiveAppTour />
           </TourProvider>
         </ToastProvider>
       </AppThemeProvider>

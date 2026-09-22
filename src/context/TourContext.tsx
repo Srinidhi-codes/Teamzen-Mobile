@@ -122,8 +122,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   const startTour = useCallback(() => {
     setCurrentStepIndex(0);
     setIsTourActive(true);
-    router.push('/(tabs)');
-  }, [router]);
+  }, []);
 
   const closeTour = useCallback(async () => {
     setIsTourActive(false);
@@ -136,7 +135,11 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
       setCurrentStepIndex(nextIdx);
       const nextTarget = TOUR_STEPS[nextIdx];
       if (nextTarget?.route) {
-        router.push(nextTarget.route as any);
+        try {
+          router.navigate(nextTarget.route as any);
+        } catch {
+          // ignore navigation errors
+        }
       }
     } else {
       closeTour();
@@ -149,7 +152,11 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
       setCurrentStepIndex(prevIdx);
       const prevTarget = TOUR_STEPS[prevIdx];
       if (prevTarget?.route) {
-        router.push(prevTarget.route as any);
+        try {
+          router.navigate(prevTarget.route as any);
+        } catch {
+          // ignore navigation errors
+        }
       }
     }
   }, [currentStepIndex, router]);
