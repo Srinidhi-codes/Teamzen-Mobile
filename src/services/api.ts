@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import { AuthService } from './auth';
 
-const RENDER_BACKEND_URL = 'https://teamzen-server.onrender.com';
+const RENDER_BACKEND_URL = 'https://api.teamzen.online';
 
 const getBaseUrl = (): string => {
   return RENDER_BACKEND_URL;
