@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from '../context/AuthContext';
 import { AppThemeProvider, useAppTheme } from '../context/ThemeContext';
 import { StatusBar } from 'expo-status-bar';
 import { OnboardingStorage } from '../utils/onboardingStorage';
+import * as Updates from 'expo-updates';
 
 function RootLayoutNav() {
   const { accessToken, isLoading } = useAuth();
@@ -14,6 +15,22 @@ function RootLayoutNav() {
   const segments = useSegments();
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
+
+  // Auto-check for OTA updates from EAS on launch
+  useEffect(() => {
+    async function checkCloudUpdates() {
+      try {
+        const update = await Updates.checkForUpdateAsync();
+        if (update.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      } catch {
+        // Silently skip if offline or running in local dev
+      }
+    }
+    checkCloudUpdates();
+  }, []);
 
   // Guard to prevent double navigation calls
   const isNavigating = useRef(false);
