@@ -4,9 +4,8 @@ import React, {
   useState,
   useEffect,
   useCallback,
-  useRef,
 } from 'react';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { InAppToast, ToastData } from '../components/InAppToast';
 import {
@@ -25,7 +24,7 @@ import {
   incrementCachedUnreadCount,
 } from '../services/notifications';
 
-interface ToastContextType {
+export interface ToastContextType {
   showToast: (data: Omit<ToastData, 'id'>) => void;
   showAnnouncement: (announcement: AnnouncementData) => void;
   showImagePreview: (imageUrl: string, title?: string) => void;
@@ -42,7 +41,6 @@ export const useToast = () => useContext(ToastContext);
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const router = useRouter();
   const { accessToken } = useAuth();
 
   const [activeToast, setActiveToast] = useState<ToastData | null>(null);
@@ -191,7 +189,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => {
       unsubscribe();
     };
-  }, [router, showToast]);
+  }, [showToast]);
 
   return (
     <ToastContext.Provider

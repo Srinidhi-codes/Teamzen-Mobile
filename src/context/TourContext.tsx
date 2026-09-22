@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import { OnboardingStorage } from '../utils/onboardingStorage';
 
 export interface TourStep {
@@ -115,7 +115,6 @@ interface TourContextType {
 const TourContext = createContext<TourContextType | undefined>(undefined);
 
 export function TourProvider({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
   const [isTourActive, setIsTourActive] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
@@ -144,7 +143,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     } else {
       closeTour();
     }
-  }, [currentStepIndex, router, closeTour]);
+  }, [currentStepIndex, closeTour]);
 
   const prevStep = useCallback(() => {
     if (currentStepIndex > 0) {
@@ -159,7 +158,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
         }
       }
     }
-  }, [currentStepIndex, router]);
+  }, [currentStepIndex]);
 
   const currentStep = TOUR_STEPS[currentStepIndex];
 

@@ -1,12 +1,15 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider, Stack, useRouter, useSegments } from 'expo-router';
-import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import * as Updates from 'expo-updates';
+
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { AppThemeProvider, useAppTheme } from '../context/ThemeContext';
-import { StatusBar } from 'expo-status-bar';
+import { ToastProvider } from '../context/ToastContext';
+import { TourProvider } from '../context/TourContext';
+import InteractiveAppTour from '../components/InteractiveAppTour';
 import { OnboardingStorage } from '../utils/onboardingStorage';
-import * as Updates from 'expo-updates';
 
 function RootLayoutNav() {
   const { accessToken, isLoading } = useAuth();
@@ -16,17 +19,18 @@ function RootLayoutNav() {
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
 
-  // Auto-check for OTA updates from EAS on launch
+  // Auto-check for OTA updates from EAS on launch (only when running standalone/production)
   useEffect(() => {
     async function checkCloudUpdates() {
       try {
+        if (!Updates.isEnabled || __DEV__) return;
         const update = await Updates.checkForUpdateAsync();
-        if (update.isAvailable) {
+        if (update?.isAvailable) {
           await Updates.fetchUpdateAsync();
           await Updates.reloadAsync();
         }
       } catch {
-        // Silently skip if offline or running in local dev
+        // Silently skip if offline, running in Expo Go or local dev
       }
     }
     checkCloudUpdates();
@@ -71,8 +75,6 @@ function RootLayoutNav() {
     const timer = setTimeout(() => { isNavigating.current = false; }, 500);
     return () => clearTimeout(timer);
   }, [accessToken, isLoading, hasSeenOnboarding, onboardingChecked]);
-  // ⚠️  `segments` intentionally omitted from deps — it changes object reference every render
-  //     and would cause an infinite navigation loop. We read it inside the effect safely.
 
   if (isLoading || !onboardingChecked) {
     return (
@@ -94,38 +96,34 @@ function RootLayoutNav() {
   };
 
   return (
-    <ThemeProvider value={navTheme}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
-      <View style={{ flex: 1, position: 'relative' }}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="notifications" />
-          <Stack.Screen name="attendance-requests" />
-          <Stack.Screen name="employee-onboarding" />
-          <Stack.Screen name="profile" />
-          <Stack.Screen name="payroll" />
-          <Stack.Screen name="documents" />
-          <Stack.Screen name="login" />
-        </Stack>
-        <InteractiveAppTour />
-      </View>
-    </ThemeProvider>
+    <TourProvider>
+      <ThemeProvider value={navTheme}>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+        <View style={{ flex: 1, position: 'relative' }}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="notifications" />
+            <Stack.Screen name="attendance-requests" />
+            <Stack.Screen name="employee-onboarding" />
+            <Stack.Screen name="profile" />
+            <Stack.Screen name="payroll" />
+            <Stack.Screen name="documents" />
+            <Stack.Screen name="login" />
+          </Stack>
+          <InteractiveAppTour />
+        </View>
+      </ThemeProvider>
+    </TourProvider>
   );
 }
-
-import { ToastProvider } from '../context/ToastContext';
-import { TourProvider } from '../context/TourContext';
-import InteractiveAppTour from '../components/InteractiveAppTour';
 
 export default function RootLayout() {
   return (
     <AuthProvider>
       <AppThemeProvider>
         <ToastProvider>
-          <TourProvider>
-            <RootLayoutNav />
-          </TourProvider>
+          <RootLayoutNav />
         </ToastProvider>
       </AppThemeProvider>
     </AuthProvider>
