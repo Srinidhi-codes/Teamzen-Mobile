@@ -22,6 +22,11 @@ import { useAppTheme } from '../../context/ThemeContext';
 import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { descriptorFromPhoto } from '../../services/faceDescriptor';
+import {
+  startHeartbeatTracking,
+  stopHeartbeatTracking,
+  sendImmediateHeartbeat,
+} from '../../services/heartbeat';
 import Sidebar from '../../components/Sidebar';
 import AttendanceRadar from '../../components/AttendanceRadar';
 import AttendanceCorrectionModal from '../../components/AttendanceCorrectionModal';
@@ -210,6 +215,14 @@ export default function AttendanceScreen() {
       const activeMock = await LocationService.isMockLocationActive();
       setIsMockEnabled(activeMock);
 
+      // Ensure background heartbeat tracking matches today's attendance state
+      const todayRec = response?.myAttendance && response.myAttendance.length > 0 ? response.myAttendance[0] : null;
+      if (todayRec?.loginTime && !todayRec?.logoutTime) {
+        startHeartbeatTracking().catch(() => {});
+      } else if (todayRec?.logoutTime) {
+        stopHeartbeatTracking().catch(() => {});
+      }
+
       await updateGPSLocation(response);
     } catch (error: any) {
       console.error('Attendance setup error:', error);
@@ -325,9 +338,11 @@ export default function AttendanceScreen() {
       const extraction = await descriptorFromPhoto(asset.uri, asset.base64, {
         verify: !isEnroll,
         enroll: isEnroll,
+        append: faceEnrolled,
       });
 
       if (isEnroll) {
+
         Alert.alert('Face Enrolled', 'Your face profile has been enrolled successfully! You can now check in with your face.');
         fetchSetupData(true);
         return;
@@ -396,6 +411,9 @@ export default function AttendanceScreen() {
         },
       });
 
+      await startHeartbeatTracking();
+      sendImmediateHeartbeat(currentCoords);
+
       Alert.alert('Checked In Successfully', `Recorded your arrival at ${timeStr}`);
       fetchSetupData(true);
     } catch (error: any) {
@@ -439,6 +457,8 @@ export default function AttendanceScreen() {
           logoutTime: timeStr,
         },
       });
+
+      await stopHeartbeatTracking();
 
       Alert.alert('Checked Out Successfully', `Recorded your departure at ${timeStr}`);
       fetchSetupData(true);
@@ -508,6 +528,8 @@ export default function AttendanceScreen() {
         if (data?.checkIn?.id) {
           await uploadSelfie(String(data.checkIn.id), 'check_in', result.photoUri, result.imageBase64);
         }
+        await startHeartbeatTracking();
+        sendImmediateHeartbeat(currentCoords);
         Alert.alert('Verified Check-In', `Face verified · Logged at ${timeStr}`);
       } else {
         const data = await graphqlRequest<{ checkOut: { id: string } }>(CHECK_OUT_MUTATION, {
@@ -524,6 +546,7 @@ export default function AttendanceScreen() {
         if (data?.checkOut?.id) {
           await uploadSelfie(String(data.checkOut.id), 'check_out', result.photoUri, result.imageBase64);
         }
+        await stopHeartbeatTracking();
         Alert.alert('Verified Check-Out', `Face verified · Logged at ${timeStr}`);
       }
       fetchSetupData(true);
@@ -637,13 +660,6 @@ export default function AttendanceScreen() {
         onMenuPress={() => setIsSidebarOpen(true)}
         rightElement={
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <TouchableOpacity
-              style={styles.correctionHeaderBtn}
-              onPress={() => setIsCorrectionModalOpen(true)}
-            >
-              <Ionicons name="create-outline" size={14} color={accentColors.primary} />
-              <Text style={styles.correctionBtnText}>Correction</Text>
-            </TouchableOpacity>
             <TouchableOpacity
               style={[styles.correctionHeaderBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: colors.border }]}
               onPress={() => router.push('/attendance-requests')}

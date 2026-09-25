@@ -5,8 +5,8 @@ import { AuthService } from './auth';
 
 /** Must stay in sync with backend/attendance/face_constants.py */
 export const FACE_DESCRIPTOR_DIM = 128;
-export const FACE_DISTANCE_THRESHOLD = 0.6;
-export const FACE_MATCH_THRESHOLD = 0.4;
+export const FACE_DISTANCE_THRESHOLD = 0.85;
+export const FACE_MATCH_THRESHOLD = 0.35;
 
 export function euclideanDistance(a: number[], b: number[]): number {
   if (!a?.length || !b?.length || a.length !== b.length) return Number.POSITIVE_INFINITY;
@@ -19,7 +19,8 @@ export function euclideanDistance(a: number[], b: number[]): number {
 }
 
 export function distanceToSimilarity(distance: number): number {
-  return Math.max(0, 1 - distance);
+  // Exact cosine similarity for unit-normalized embeddings: 1 - (d^2)/2
+  return Math.max(0, Math.min(1, 1 - (distance * distance) / 2));
 }
 
 export function isFaceMatch(distance: number): boolean {
@@ -42,9 +43,10 @@ export interface FaceExtractionResult {
 export async function descriptorFromPhoto(
   uri: string,
   base64Data?: string | null,
-  options: { verify?: boolean; enroll?: boolean } = {}
+  options: { verify?: boolean; enroll?: boolean; append?: boolean } = {}
 ): Promise<FaceExtractionResult> {
   let photoBase64 = base64Data;
+
 
   // Downscale image to width 480 (maintaining aspect ratio) and compress to 0.75 JPEG
   // Drastically prevents memory spikes & 502 Bad Gateway OOM errors on server
@@ -84,8 +86,10 @@ export async function descriptorFromPhoto(
       photo_base64: photoBase64,
       verify: !!options.verify,
       enroll: !!options.enroll,
+      append: !!options.append,
     }),
   });
+
 
   const rawText = await response.text();
   let data: any;
@@ -112,5 +116,5 @@ export async function descriptorFromPhoto(
 
 export const descriptorFromPhotoUri = (
   uri: string,
-  options: { verify?: boolean; enroll?: boolean } = {}
+  options: { verify?: boolean; enroll?: boolean; append?: boolean } = {}
 ) => descriptorFromPhoto(uri, null, options);

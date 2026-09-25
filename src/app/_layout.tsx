@@ -10,6 +10,7 @@ import { ToastProvider } from '../context/ToastContext';
 import { TourProvider } from '../context/TourContext';
 import InteractiveAppTour from '../components/InteractiveAppTour';
 import { OnboardingStorage } from '../utils/onboardingStorage';
+import '../services/heartbeat';
 
 function RootLayoutNav() {
   const { accessToken, isLoading } = useAuth();
