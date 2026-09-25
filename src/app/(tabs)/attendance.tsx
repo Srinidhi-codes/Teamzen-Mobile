@@ -82,6 +82,10 @@ const CHECK_IN_MUTATION = `
       loginTime
       isWithinGeofence
       faceVerified
+      approvalStatus
+      isWeekendWork
+      isOffHours
+      approvalRemarks
     }
   }
 `;
@@ -402,7 +406,13 @@ export default function AttendanceScreen() {
     setIsPunching(true);
     try {
       const timeStr = getCurrentTimeFormatted();
-      await graphqlRequest(CHECK_IN_MUTATION, {
+      const data = await graphqlRequest<{
+        checkIn: {
+          id: string;
+          approvalStatus?: string;
+          approvalRemarks?: string;
+        };
+      }>(CHECK_IN_MUTATION, {
         input: {
           officeLocationId: setupData.me.officeLocation.id,
           latitude: currentCoords.latitude,
@@ -414,7 +424,14 @@ export default function AttendanceScreen() {
       await startHeartbeatTracking();
       sendImmediateHeartbeat(currentCoords);
 
-      Alert.alert('Checked In Successfully', `Recorded your arrival at ${timeStr}`);
+      if (data?.checkIn?.approvalStatus === 'pending') {
+        Alert.alert(
+          'Pending Manager Approval',
+          data.checkIn.approvalRemarks || 'Because your arrival was outside standard shift hours or on a weekend, it is awaiting manager approval.'
+        );
+      } else {
+        Alert.alert('Checked In Successfully', `Recorded your arrival at ${timeStr}`);
+      }
       fetchSetupData(true);
     } catch (error: any) {
       Alert.alert('Check-in Failed', error?.message || 'Geofence or server error.');
@@ -513,7 +530,13 @@ export default function AttendanceScreen() {
     try {
       const timeStr = getCurrentTimeFormatted();
       if (type === 'in') {
-        const data = await graphqlRequest<{ checkIn: { id: string } }>(CHECK_IN_MUTATION, {
+        const data = await graphqlRequest<{
+          checkIn: {
+            id: string;
+            approvalStatus?: string;
+            approvalRemarks?: string;
+          };
+        }>(CHECK_IN_MUTATION, {
           input: {
             officeLocationId: setupData.me.officeLocation.id,
             latitude: currentCoords.latitude,
@@ -530,7 +553,15 @@ export default function AttendanceScreen() {
         }
         await startHeartbeatTracking();
         sendImmediateHeartbeat(currentCoords);
-        Alert.alert('Verified Check-In', `Face verified · Logged at ${timeStr}`);
+
+        if (data?.checkIn?.approvalStatus === 'pending') {
+          Alert.alert(
+            'Face Verified · Pending Approval',
+            data.checkIn.approvalRemarks || 'Face match verified. Because your arrival was outside standard shift hours or on a weekend, it is awaiting manager approval.'
+          );
+        } else {
+          Alert.alert('Verified Check-In', `Face verified · Logged at ${timeStr}`);
+        }
       } else {
         const data = await graphqlRequest<{ checkOut: { id: string } }>(CHECK_OUT_MUTATION, {
           input: {
