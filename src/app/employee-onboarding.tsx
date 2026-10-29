@@ -23,6 +23,8 @@ import { useAppTheme } from '../context/ThemeContext';
 import ScreenHeader from '../components/ScreenHeader';
 import { graphqlRequest, authenticatedFetch, API_URL } from '../services/api';
 import { AuthService } from '../services/auth';
+import { AnnouncementModal, AnnouncementData } from '../components/AnnouncementModal';
+import { NotificationService } from '../services/notifications';
 
 // =====================================================
 // GRAPHQL QUERIES & MUTATIONS
@@ -199,6 +201,10 @@ export default function EmployeeOnboardingScreen() {
   const [selectedCategory, setSelectedCategory] = useState('pan');
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
 
+  // Onboarding Announcements
+  const [announcements, setAnnouncements] = useState<AnnouncementData[]>([]);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<AnnouncementData | null>(null);
+
   // Fetch Data
   const fetchData = useCallback(async () => {
     try {
@@ -209,6 +215,18 @@ export default function EmployeeOnboardingScreen() {
 
       setOnboarding(data.myOnboarding);
       setAssignedTasks(data.myAssignedOnboardingTasks || []);
+
+      // Fetch company announcements for onboarding employees
+      try {
+        const notifs = await NotificationService.fetchNotifications({
+          page: 1,
+          pageSize: 20,
+        });
+        const list = (notifs?.results || []).filter((n: any) => n.verb === 'announcement');
+        setAnnouncements(list);
+      } catch (e) {
+        // silently fallback
+      }
     } catch (err: any) {
       console.error('Error fetching onboarding:', err);
     } finally {
@@ -482,6 +500,98 @@ export default function EmployeeOnboardingScreen() {
               <Ionicons name="checkmark-circle" size={20} color="#10b981" />
               <Text style={styles.completedNoticeText}>
                 Onboarding complete! Your employee profile is fully verified.
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* ── ONBOARDING ANNOUNCEMENTS BANNER ── */}
+        <View style={[styles.card, { backgroundColor: colors.backgroundCard, borderColor: colors.border }]}>
+          <View style={styles.cardHeaderRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+              <View style={[styles.announcementIconBox, { backgroundColor: 'rgba(236, 72, 153, 0.12)' }]}>
+                <Ionicons name="megaphone" size={18} color="#ec4899" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>Company Announcements</Text>
+                <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
+                  Official updates for new team members
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={[styles.feedLinkPill, { backgroundColor: accentColors.light }]}
+              onPress={() => router.push('/feed' as any)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.feedLinkText, { color: accentColors.primary }]}>View Feed</Text>
+              <Ionicons name="arrow-forward" size={12} color={accentColors.primary} />
+            </TouchableOpacity>
+          </View>
+
+          {announcements.length > 0 ? (
+            <View style={styles.announcementsList}>
+              {announcements.slice(0, 3).map((ann, idx) => {
+                let parsed: any = null;
+                try {
+                  parsed = JSON.parse(ann.message);
+                } catch {}
+                const annTitle = parsed?.title || 'Company Announcement';
+                const annBody = parsed?.body || ann.message;
+                const actorName = ann.actor?.firstName
+                  ? `${ann.actor.firstName} ${ann.actor.lastName || ''}`.trim()
+                  : 'Company Leadership';
+
+                return (
+                  <TouchableOpacity
+                    key={ann.id || String(idx)}
+                    style={[
+                      styles.announcementItem,
+                      {
+                        backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#f8fafc',
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    onPress={() => setSelectedAnnouncement(ann)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.announcementItemHeader}>
+                      <View style={styles.announcementBadge}>
+                        <Ionicons name="sparkles" size={10} color="#ffffff" />
+                        <Text style={styles.announcementBadgeText}>OFFICIAL</Text>
+                      </View>
+                      {ann.createdAt && (
+                        <Text style={[styles.announcementDate, { color: colors.textSecondary }]}>
+                          {new Date(ann.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                        </Text>
+                      )}
+                    </View>
+
+                    <Text style={[styles.announcementItemTitle, { color: colors.text }]} numberOfLines={1}>
+                      {annTitle}
+                    </Text>
+                    <Text style={[styles.announcementItemBody, { color: colors.textSecondary }]} numberOfLines={2}>
+                      {annBody.replace(/<[^>]*>?/gm, '').trim()}
+                    </Text>
+
+                    <View style={styles.announcementFooter}>
+                      <Text style={[styles.announcementAuthor, { color: accentColors.primary }]} numberOfLines={1}>
+                        By {actorName}
+                      </Text>
+                      <Text style={[styles.readMoreText, { color: colors.textSecondary }]}>
+                        Tap to read full →
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : (
+            <View style={[styles.announcementEmptyBox, { borderColor: colors.border }]}>
+              <Ionicons name="notifications-outline" size={24} color={colors.textSecondary} />
+              <Text style={[styles.announcementEmptyTitle, { color: colors.text }]}>No New Announcements</Text>
+              <Text style={[styles.announcementEmptySub, { color: colors.textSecondary }]}>
+                Upcoming orientation dates, welcome notices, and workplace updates will appear here.
               </Text>
             </View>
           )}
@@ -855,6 +965,14 @@ export default function EmployeeOnboardingScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Full Rich Announcement Popup Modal */}
+      <AnnouncementModal
+        visible={!!selectedAnnouncement}
+        announcement={selectedAnnouncement}
+        onClose={() => setSelectedAnnouncement(null)}
+        onNavigateNotifications={() => router.push('/notifications')}
+      />
     </SafeAreaView>
   );
 }
@@ -1217,5 +1335,103 @@ const styles = StyleSheet.create({
   cancelBtnText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  announcementIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  feedLinkPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+  },
+  feedLinkText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  announcementsList: {
+    gap: 10,
+  },
+  announcementItem: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    gap: 6,
+  },
+  announcementItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  announcementBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ec4899',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  announcementBadgeText: {
+    color: '#ffffff',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  announcementDate: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  announcementItemTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  announcementItemBody: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  announcementFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+    paddingTop: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(150, 150, 150, 0.15)',
+  },
+  announcementAuthor: {
+    fontSize: 11,
+    fontWeight: '600',
+    flex: 1,
+  },
+  readMoreText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  announcementEmptyBox: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    gap: 6,
+  },
+  announcementEmptyTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  announcementEmptySub: {
+    fontSize: 11,
+    textAlign: 'center',
+    lineHeight: 16,
+    paddingHorizontal: 12,
   },
 });

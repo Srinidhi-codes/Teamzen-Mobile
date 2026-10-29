@@ -69,10 +69,9 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!accessToken) return;
     try {
       const res = await NotificationService.fetchNotifications({
-        level: 'personal',
         isRead: false,
         page: 1,
-        pageSize: 5,
+        pageSize: 25,
       });
 
       const announcements = (res?.results || []).filter(

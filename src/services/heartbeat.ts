@@ -35,7 +35,7 @@ if (!TaskManager.isTaskDefined(ATTENDANCE_HEARTBEAT_TASK)) {
           const isMocked = (latest as any).mocked === true || (await LocationService.isMockLocationActive());
           const coords = latest.coords;
 
-          const response = await restRequest<HeartbeatResponse>('/attendance/heartbeat/', {
+          const response = await restRequest<HeartbeatResponse>('/api/attendance/heartbeat/', {
             method: 'POST',
             body: JSON.stringify({
               latitude: coords.latitude,
@@ -160,7 +160,7 @@ export async function isHeartbeatTrackingActive(): Promise<boolean> {
 export async function sendImmediateHeartbeat(coords: { latitude: number; longitude: number }): Promise<HeartbeatResponse | null> {
   try {
     const isMocked = await LocationService.isMockLocationActive();
-    return await restRequest<HeartbeatResponse>('/attendance/heartbeat/', {
+    return await restRequest<HeartbeatResponse>('/api/attendance/heartbeat/', {
       method: 'POST',
       body: JSON.stringify({
         latitude: coords.latitude,

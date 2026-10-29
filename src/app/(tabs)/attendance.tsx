@@ -31,9 +31,13 @@ import Sidebar from '../../components/Sidebar';
 import AttendanceRadar from '../../components/AttendanceRadar';
 import AttendanceCorrectionModal from '../../components/AttendanceCorrectionModal';
 import ScreenHeader from '../../components/ScreenHeader';
+import moment from 'moment';
+import AttendanceTimelineBar from '../../components/AttendanceTimelineBar';
+import WeeklyAttendanceLog from '../../components/WeeklyAttendanceLog';
+import { isAutoPunchOutRecord } from '../../utils/attendanceStatus';
 
 const ATTENDANCE_SETUP_QUERY = `
-  query GetAttendanceSetup {
+  query GetAttendanceSetup($input: AttendanceInput) {
     me {
       id
       firstName
@@ -53,7 +57,7 @@ const ATTENDANCE_SETUP_QUERY = `
         geoRadiusMeters
       }
     }
-    myAttendance {
+    myAttendance(input: $input) {
       id
       attendanceDate
       loginTime
@@ -67,6 +71,10 @@ const ATTENDANCE_SETUP_QUERY = `
       logoutDistance
       status
       workedHours
+      effectiveWorkedHours
+      remarks
+      isAutoPunchOut
+      correctionStatus
       checkInSelfieUrl
       checkOutSelfieUrl
       faceMatchScore
@@ -149,6 +157,10 @@ interface AttendanceSetupData {
     logoutDistance: number | null;
     status: string | null;
     workedHours: number | null;
+    effectiveWorkedHours?: number | null;
+    remarks?: string | null;
+    isAutoPunchOut?: boolean;
+    correctionStatus?: string | null;
     checkInSelfieUrl?: string | null;
     checkOutSelfieUrl?: string | null;
     faceMatchScore?: number | null;
@@ -167,8 +179,20 @@ export default function AttendanceScreen() {
   // Layout & Navigation State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
+  const [activeCorrectionRecord, setActiveCorrectionRecord] = useState<any>(null);
   const [todayCheckInSelfie, setTodayCheckInSelfie] = useState<string | null>(null);
   const [todayCheckOutSelfie, setTodayCheckOutSelfie] = useState<string | null>(null);
+
+  // Attendance range state (defaults to start of current month through today)
+  const [attendanceRange, setAttendanceRange] = useState(() => {
+    const startOfMonth = moment().startOf('month').format('YYYY-MM-DD');
+    const sevenDaysAgo = moment().subtract(6, 'days').format('YYYY-MM-DD');
+    const startDate = moment(startOfMonth).isBefore(moment(sevenDaysAgo))
+      ? startOfMonth
+      : sevenDaysAgo;
+    const endDate = moment().format('YYYY-MM-DD');
+    return { startDate, endDate };
+  });
 
   // Data & Telemetry State
   const [setupData, setSetupData] = useState<AttendanceSetupData | null>(cachedSetupData);
@@ -205,10 +229,15 @@ export default function AttendanceScreen() {
     return () => clearInterval(timer);
   }, []);
 
-  const fetchSetupData = async (silent = false) => {
+  const fetchSetupData = async (silent = false, customRange = attendanceRange) => {
     if (!silent && !cachedSetupData) setIsLoading(true);
     try {
-      const response = await graphqlRequest<AttendanceSetupData>(ATTENDANCE_SETUP_QUERY);
+      const response = await graphqlRequest<AttendanceSetupData>(ATTENDANCE_SETUP_QUERY, {
+        input: {
+          startDate: customRange.startDate,
+          endDate: customRange.endDate,
+        },
+      });
       cachedSetupData = response;
       setSetupData(response);
 
@@ -220,7 +249,10 @@ export default function AttendanceScreen() {
       setIsMockEnabled(activeMock);
 
       // Ensure background heartbeat tracking matches today's attendance state
-      const todayRec = response?.myAttendance && response.myAttendance.length > 0 ? response.myAttendance[0] : null;
+      const todayStr = moment().format('YYYY-MM-DD');
+      const todayRec = response?.myAttendance?.find((r) => r.attendanceDate === todayStr) ||
+        (response?.myAttendance && response.myAttendance.length > 0 ? response.myAttendance[0] : null);
+
       if (todayRec?.loginTime && !todayRec?.logoutTime) {
         startHeartbeatTracking().catch(() => {});
       } else if (todayRec?.logoutTime) {
@@ -613,20 +645,31 @@ export default function AttendanceScreen() {
   };
 
   const office = setupData?.me?.officeLocation;
+  const todayStr = moment(now).format('YYYY-MM-DD');
   const todayRecord =
-    setupData?.myAttendance && setupData.myAttendance.length > 0 ? setupData.myAttendance[0] : null;
+    setupData?.myAttendance?.find((r) => r.attendanceDate === todayStr) ||
+    (setupData?.myAttendance && setupData.myAttendance.length > 0 && setupData.myAttendance[0].attendanceDate === todayStr
+      ? setupData.myAttendance[0]
+      : null);
 
   // Status computation matching Web
   const isCheckedIn = !!todayRecord?.loginTime;
   const isCheckedOut = !!todayRecord?.logoutTime;
+  const isWeekendNow = [0, 6].includes(now.getDay());
+
+  const shiftEndRaw = "18:00:00";
+  const isAutoPunch = isAutoPunchOutRecord(todayRecord, shiftEndRaw);
 
   const statusLabel = useMemo(() => {
+    if (isAutoPunch) return { text: 'Auto Punch Out', color: '#f97316', icon: 'log-out-outline' as const };
     if (todayRecord?.status === 'late_login') return { text: 'Late Entry', color: '#f59e0b', icon: 'alert-circle' as const };
     if (todayRecord?.status === 'early_logout') return { text: 'Early Exit', color: '#f97316', icon: 'alert-circle' as const };
     if (todayRecord?.status === 'absent') return { text: 'Absent', color: '#ef4444', icon: 'close-circle' as const };
-    if (isCheckedIn) return { text: 'Active', color: '#10b981', icon: 'checkmark-circle' as const };
+    if (isCheckedIn && !isCheckedOut) return { text: 'Active Session', color: '#10b981', icon: 'checkmark-circle' as const };
+    if (isCheckedIn && isCheckedOut) return { text: 'Completed', color: accentColors.primary, icon: 'checkmark-circle' as const };
+    if (isWeekendNow) return { text: 'Weekend Off', color: '#64748b', icon: 'cafe-outline' as const };
     return { text: 'Not Checked In', color: colors.textSecondary, icon: 'time-outline' as const };
-  }, [todayRecord, isCheckedIn, colors.textSecondary]);
+  }, [todayRecord, isAutoPunch, isCheckedIn, isCheckedOut, isWeekendNow, accentColors.primary, colors.textSecondary]);
 
   if (isLoading && !setupData) {
     return (
@@ -660,15 +703,18 @@ export default function AttendanceScreen() {
 
       <AttendanceCorrectionModal
         visible={isCorrectionModalOpen}
-        attendanceRecordId={todayRecord?.id}
-        currentLoginTime={todayRecord?.loginTime}
-        currentLogoutTime={todayRecord?.logoutTime}
-        attendanceDate={todayRecord?.attendanceDate || todayDateLabel}
-        checkInSelfieUrl={todayRecord?.checkInSelfieUrl || todayCheckInSelfie}
-        checkOutSelfieUrl={todayRecord?.checkOutSelfieUrl || todayCheckOutSelfie}
-        faceMatchScore={todayRecord?.faceMatchScore}
-        faceVerified={todayRecord?.faceVerified}
-        onClose={() => setIsCorrectionModalOpen(false)}
+        attendanceRecordId={activeCorrectionRecord?.id || todayRecord?.id}
+        currentLoginTime={activeCorrectionRecord?.loginTime ?? todayRecord?.loginTime}
+        currentLogoutTime={activeCorrectionRecord?.logoutTime ?? todayRecord?.logoutTime}
+        attendanceDate={activeCorrectionRecord?.attendanceDate || todayRecord?.attendanceDate || todayDateLabel}
+        checkInSelfieUrl={activeCorrectionRecord?.checkInSelfieUrl || todayRecord?.checkInSelfieUrl || todayCheckInSelfie}
+        checkOutSelfieUrl={activeCorrectionRecord?.checkOutSelfieUrl || todayRecord?.checkOutSelfieUrl || todayCheckOutSelfie}
+        faceMatchScore={activeCorrectionRecord?.faceMatchScore ?? todayRecord?.faceMatchScore}
+        faceVerified={activeCorrectionRecord?.faceVerified ?? todayRecord?.faceVerified}
+        onClose={() => {
+          setIsCorrectionModalOpen(false);
+          setActiveCorrectionRecord(null);
+        }}
         onSuccess={() => fetchSetupData(true)}
       />
 
@@ -799,77 +845,63 @@ export default function AttendanceScreen() {
           </View>
         </LinearGradient>
 
-        {/* Action Grid: Dual Punch Cards */}
-        <View style={styles.punchGrid}>
-          {/* Check In Card */}
-          <TouchableOpacity
-            style={[
-              styles.punchCard,
-              isCheckedIn && styles.punchCardDisabled,
-            ]}
-            onPress={handleCheckIn}
-            disabled={isCheckedIn || isPunching}
-            activeOpacity={0.85}
-          >
-            <View style={[styles.punchIconContainer, styles.checkInIconBg]}>
-              <Ionicons name="checkmark" size={32} color="#10b981" />
+        {/* Unified Action Button: Single Smart Punch */}
+        <View style={styles.unifiedPunchContainer}>
+          {!isCheckedIn ? (
+            <View style={styles.unifiedPunchWrapper}>
+              <TouchableOpacity
+                style={[
+                  styles.unifiedPunchButton,
+                  { backgroundColor: '#10b981', shadowColor: '#10b981' },
+                ]}
+                onPress={handleCheckIn}
+                disabled={isPunching}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="scan-outline" size={44} color="#fff" />
+                <Text style={styles.unifiedPunchText}>
+                  {isPunching ? 'WAIT...' : 'PUNCH IN'}
+                </Text>
+              </TouchableOpacity>
+              <Text style={styles.unifiedPunchTitle}>Ready to start?</Text>
+              <Text style={styles.unifiedPunchSubtitle}>Tap the button above to mark your arrival.</Text>
             </View>
-            <Text style={styles.punchCardTitle}>
-              {isPunching && !isCheckedIn ? 'Checking in…' : 'Check in'}
-            </Text>
-            <Text style={styles.punchCardSubtitle}>Mark your arrival</Text>
-
-            {isCheckedIn ? (
-              <View style={styles.punchRecordedBadge}>
-                <Ionicons name="checkmark-circle" size={13} color="#10b981" />
-                <Text style={styles.punchRecordedText}>
-                  Logged at {todayRecord?.loginTime}
+          ) : isCheckedIn && !isCheckedOut ? (
+            <View style={styles.unifiedPunchWrapper}>
+              <TouchableOpacity
+                style={[
+                  styles.unifiedPunchButton,
+                  { backgroundColor: '#ef4444', shadowColor: '#ef4444' },
+                ]}
+                onPress={handleCheckOut}
+                disabled={isPunching}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="log-out-outline" size={44} color="#fff" />
+                <Text style={styles.unifiedPunchText}>
+                  {isPunching ? 'WAIT...' : 'PUNCH OUT'}
+                </Text>
+              </TouchableOpacity>
+              <Text style={styles.unifiedPunchTitle}>Active Session</Text>
+              <Text style={styles.unifiedPunchSubtitle}>Tap above when you're ready to leave.</Text>
+            </View>
+          ) : (
+            <View style={styles.unifiedPunchWrapper}>
+              <View
+                style={[
+                  styles.unifiedPunchButton,
+                  { backgroundColor: 'transparent', borderWidth: 4, borderColor: colors.borderLight, elevation: 0, shadowOpacity: 0 },
+                ]}
+              >
+                <Ionicons name="checkmark-outline" size={44} color="#10b981" />
+                <Text style={[styles.unifiedPunchText, { color: colors.textSecondary }]}>
+                  COMPLETED
                 </Text>
               </View>
-            ) : (
-              <View style={styles.punchTapPrompt}>
-                <Text style={styles.punchTapText}>Tap to punch</Text>
-                <Ionicons name="arrow-forward" size={12} color={accentColors.primary} />
-              </View>
-            )}
-          </TouchableOpacity>
-
-          {/* Check Out Card */}
-          <TouchableOpacity
-            style={[
-              styles.punchCard,
-              (!isCheckedIn || isCheckedOut) && styles.punchCardDisabled,
-            ]}
-            onPress={handleCheckOut}
-            disabled={!isCheckedIn || isCheckedOut || isPunching}
-            activeOpacity={0.85}
-          >
-            <View style={[styles.punchIconContainer, styles.checkOutIconBg]}>
-              <Ionicons name="log-out-outline" size={30} color="#ef4444" />
+              <Text style={styles.unifiedPunchTitle}>Shift Completed</Text>
+              <Text style={styles.unifiedPunchSubtitle}>You have finished your attendance for today.</Text>
             </View>
-            <Text style={styles.punchCardTitle}>
-              {isPunching && isCheckedIn ? 'Checking out…' : 'Check out'}
-            </Text>
-            <Text style={styles.punchCardSubtitle}>Mark your departure</Text>
-
-            {isCheckedOut ? (
-              <View style={[styles.punchRecordedBadge, styles.checkOutRecordedBadge]}>
-                <Ionicons name="close-circle" size={13} color="#ef4444" />
-                <Text style={[styles.punchRecordedText, { color: '#ef4444' }]}>
-                  Exited at {todayRecord?.logoutTime}
-                </Text>
-              </View>
-            ) : isCheckedIn ? (
-              <View style={styles.punchTapPrompt}>
-                <Text style={styles.punchTapText}>Tap to punch out</Text>
-                <Ionicons name="arrow-forward" size={12} color="#ef4444" />
-              </View>
-            ) : (
-              <View style={styles.punchWaitingPrompt}>
-                <Text style={styles.punchWaitingText}>Requires Check-in</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          )}
         </View>
 
         {/* Location & Geofence Telemetry Section */}
@@ -1096,15 +1128,57 @@ export default function AttendanceScreen() {
             {todayRecord && (
               <TouchableOpacity
                 style={styles.requestCorrectionCardBtn}
-                onPress={() => setIsCorrectionModalOpen(true)}
+                onPress={() => {
+                  setActiveCorrectionRecord(todayRecord);
+                  setIsCorrectionModalOpen(true);
+                }}
                 activeOpacity={0.8}
               >
                 <Ionicons name="create-outline" size={16} color={accentColors.primary} />
                 <Text style={styles.requestCorrectionCardBtnText}>Request Attendance Correction</Text>
               </TouchableOpacity>
             )}
+
+            {/* Today's Live Shift Timeline Bar */}
+            <View style={{ marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <Ionicons name="time-outline" size={14} color={accentColors.primary} />
+                  <Text style={[styles.sessionListHeader, { marginBottom: 0 }]}>TODAY'S SESSION TIMELINE</Text>
+                </View>
+                <Text style={{ fontSize: 10, color: colors.textSecondary, fontWeight: '600' }}>
+                  09:00 AM – 06:00 PM
+                </Text>
+              </View>
+              <AttendanceTimelineBar
+                loginTime={todayRecord?.loginTime}
+                logoutTime={todayRecord?.logoutTime}
+                attendanceDate={todayRecord?.attendanceDate || moment(now).format('YYYY-MM-DD')}
+                status={todayRecord?.status || (isWeekendNow ? 'weekend' : 'present')}
+                workedHours={todayRecord?.workedHours}
+                compact={false}
+                showTimeMarkers={true}
+              />
+            </View>
           </View>
         </View>
+
+        {/* Weekly & Monthly Attendance Log Overview (Matching Web) */}
+        <WeeklyAttendanceLog
+          records={setupData?.myAttendance || []}
+          isLoading={isLoading}
+          onRefresh={() => fetchSetupData(true)}
+          officeName={office?.name}
+          officeRadiusMeters={office?.geoRadiusMeters}
+          onRequestCorrection={(record) => {
+            setActiveCorrectionRecord(record);
+            setIsCorrectionModalOpen(true);
+          }}
+          onDateRangeChange={(startDate, endDate) => {
+            setAttendanceRange({ startDate, endDate });
+            fetchSetupData(false, { startDate, endDate });
+          }}
+        />
 
         {/* Location Policy Notice */}
         <View style={styles.policyCard}>
@@ -1397,88 +1471,47 @@ const getStyles = (colors: any, accentColors: any, isDark: boolean) =>
       fontWeight: '600',
       color: colors.textSecondary,
     },
-    punchGrid: {
-      flexDirection: 'row',
-      gap: 14,
-      marginBottom: 22,
-    },
-    punchCard: {
-      flex: 1,
+    unifiedPunchContainer: {
       backgroundColor: colors.backgroundCard,
-      borderRadius: 20,
-      padding: 16,
+      borderRadius: 22,
+      padding: 24,
       alignItems: 'center',
       borderWidth: 1,
       borderColor: colors.border,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: isDark ? 0.3 : 0.05,
-      shadowRadius: 8,
-      elevation: 4,
+      marginBottom: 22,
     },
-    punchCardDisabled: {
-      opacity: 0.55,
+    unifiedPunchWrapper: {
+      alignItems: 'center',
     },
-    punchIconContainer: {
-      width: 58,
-      height: 58,
-      borderRadius: 16,
+    unifiedPunchButton: {
+      width: 140,
+      height: 140,
+      borderRadius: 70,
       justifyContent: 'center',
       alignItems: 'center',
-      marginBottom: 12,
+      marginBottom: 16,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.35,
+      shadowRadius: 12,
+      elevation: 8,
     },
-    checkInIconBg: {
-      backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    unifiedPunchText: {
+      fontSize: 14,
+      fontWeight: '800',
+      color: '#fff',
+      marginTop: 4,
+      letterSpacing: 1,
     },
-    checkOutIconBg: {
-      backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    },
-    punchCardTitle: {
-      fontSize: 16,
+    unifiedPunchTitle: {
+      fontSize: 18,
       fontWeight: '700',
       color: colors.text,
-      marginBottom: 2,
+      marginBottom: 4,
     },
-    punchCardSubtitle: {
-      fontSize: 11,
+    unifiedPunchSubtitle: {
+      fontSize: 12,
       color: colors.textSecondary,
-      marginBottom: 12,
-    },
-    punchRecordedBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      backgroundColor: 'rgba(16, 185, 129, 0.12)',
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 8,
-    },
-    checkOutRecordedBadge: {
-      backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    },
-    punchRecordedText: {
-      fontSize: 10,
-      fontWeight: '700',
-      color: '#10b981',
-    },
-    punchTapPrompt: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      paddingVertical: 4,
-    },
-    punchTapText: {
-      fontSize: 11,
-      fontWeight: '700',
-      color: accentColors.primary,
-    },
-    punchWaitingPrompt: {
-      paddingVertical: 4,
-    },
-    punchWaitingText: {
-      fontSize: 11,
-      fontWeight: '500',
-      color: colors.textMuted,
+      textAlign: 'center',
     },
     cardSection: {
       backgroundColor: colors.backgroundCard,

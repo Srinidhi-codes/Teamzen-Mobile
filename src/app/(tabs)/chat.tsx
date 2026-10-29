@@ -137,7 +137,7 @@ export default function ChatScreen() {
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [showScrollBottom, setShowScrollBottom] = useState<boolean>(false);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<any>(null);
   const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set());
   const [processedQuery, setProcessedQuery] = useState<string | null>(null);
   const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);

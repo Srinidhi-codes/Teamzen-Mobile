@@ -43,6 +43,14 @@ const LEAVE_PORTAL_QUERY = `
       reason
       durationDays
       status
+      approvalComments
+      approvedAt
+      createdAt
+      approvedBy {
+        id
+        firstName
+        lastName
+      }
       leaveType {
         name
         code
@@ -99,6 +107,14 @@ interface LeaveRequest {
   reason: string;
   durationDays: number;
   status: string;
+  approvalComments?: string | null;
+  approvedAt?: string | null;
+  createdAt?: string | null;
+  approvedBy?: {
+    id: string;
+    firstName: string;
+    lastName?: string;
+  } | null;
   leaveType: {
     name: string;
     code: string;
@@ -422,6 +438,83 @@ export default function LeaveScreen() {
               
               <Text style={styles.reqReason}>Reason: {req.reason}</Text>
               <Text style={styles.reqDuration}>Duration: {req.durationDays} day(s)</Text>
+
+              {/* Resolution Workflow Stepper (Matching Web Master-Detail) */}
+              <View style={styles.workflowStepper}>
+                <View style={styles.stepItem}>
+                  <View style={[styles.stepDot, { backgroundColor: '#3b82f6' }]} />
+                  <Text style={[styles.stepLabel, { color: colors.textSecondary }]}>
+                    Submitted {req.createdAt ? moment(req.createdAt).format('D MMM') : ''}
+                  </Text>
+                </View>
+
+                <View style={[styles.stepLine, { backgroundColor: colors.borderLight }]} />
+
+                <View style={styles.stepItem}>
+                  <View
+                    style={[
+                      styles.stepDot,
+                      {
+                        backgroundColor:
+                          req.status.toLowerCase() === 'pending'
+                            ? '#f59e0b'
+                            : ['approved', 'rejected', 'cancelled'].includes(req.status.toLowerCase())
+                            ? '#10b981'
+                            : colors.textMuted,
+                      },
+                    ]}
+                  />
+                  <Text style={[styles.stepLabel, { color: colors.textSecondary }]}>
+                    {req.status.toLowerCase() === 'pending' ? 'In Review' : 'Reviewed'}
+                  </Text>
+                </View>
+
+                <View style={[styles.stepLine, { backgroundColor: colors.borderLight }]} />
+
+                <View style={styles.stepItem}>
+                  <View
+                    style={[
+                      styles.stepDot,
+                      {
+                        backgroundColor:
+                          req.status.toLowerCase() === 'approved'
+                            ? '#10b981'
+                            : req.status.toLowerCase() === 'rejected'
+                            ? '#ef4444'
+                            : colors.textMuted,
+                      },
+                    ]}
+                  />
+                  <Text style={[styles.stepLabel, { color: getStatusColor(req.status), fontWeight: '700' }]}>
+                    {req.status.toUpperCase()}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Reviewer Feedback / Comments Box */}
+              {req.approvalComments ? (
+                <View
+                  style={[
+                    styles.reviewerCommentBox,
+                    {
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc',
+                      borderColor: colors.borderLight,
+                    },
+                  ]}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+                    <Ionicons name="chatbubble-ellipses-outline" size={13} color={accentColors.primary} />
+                    <Text style={[styles.reviewerCommentTitle, { color: accentColors.primary }]}>
+                      {req.approvedBy?.firstName
+                        ? `Remarks from ${req.approvedBy.firstName} ${req.approvedBy.lastName || ''}:`
+                        : 'Reviewer Remarks:'}
+                    </Text>
+                  </View>
+                  <Text style={[styles.reviewerCommentBody, { color: colors.text }]}>
+                    {req.approvalComments}
+                  </Text>
+                </View>
+              ) : null}
 
               {req.status.toLowerCase() === 'pending' && (
                 <TouchableOpacity
@@ -888,6 +981,49 @@ const getStyles = (colors: any, accentColors: any, isDark: boolean) => StyleShee
     color: colors.textMuted,
     fontSize: 11,
     marginTop: 6,
+  },
+  workflowStepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 10,
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  stepItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  stepDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  stepLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  stepLine: {
+    flex: 1,
+    height: 1,
+    marginHorizontal: 4,
+  },
+  reviewerCommentBox: {
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    marginTop: 10,
+  },
+  reviewerCommentTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  reviewerCommentBody: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontStyle: 'italic',
   },
   cancelBtn: {
     backgroundColor: '#ef444410',

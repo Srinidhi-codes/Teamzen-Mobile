@@ -52,6 +52,18 @@ export const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
       ? `${announcement.actor.firstName} ${announcement.actor.lastName || ''}`.trim()
       : 'Company Admin';
 
+  let parsedMessage: any = null;
+  try {
+    parsedMessage = JSON.parse(announcement.message);
+  } catch (e) {
+    // legacy or plain text announcement
+  }
+
+  const title = parsedMessage?.title || 'COMPANY ANNOUNCEMENT';
+  const body = parsedMessage?.body || announcement.message;
+  const footer = parsedMessage?.footer || null;
+  const department = parsedMessage?.department || 'Company Wide';
+
   const handleAcknowledge = async () => {
     try {
       if (announcement.id) {
@@ -110,12 +122,20 @@ export const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
                       { color: isDark ? '#A5B4FC' : '#4F46E5' },
                     ]}
                   >
-                    COMPANY ANNOUNCEMENT
+                    {title.toUpperCase()}
                   </Text>
                   <Text
                     style={[
                       styles.headerDate,
                       { color: isDark ? '#94A3B8' : '#64748B' },
+                    ]}
+                  >
+                    • {department}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.headerDate,
+                      { color: isDark ? '#94A3B8' : '#64748B', marginTop: 2 },
                     ]}
                   >
                     Official broadcast from {actorName}
@@ -142,12 +162,47 @@ export const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
               contentContainerStyle={styles.bodyContent}
               showsVerticalScrollIndicator={false}
             >
+              {/* Message text */}
+              <View style={styles.messageBox}>
+                <Text
+                  style={[
+                    styles.messageText,
+                    { color: isDark ? '#F1F5F9' : '#1E293B' },
+                  ]}
+                >
+                  {body}
+                </Text>
+              </View>
+
+              {/* Footer Information */}
+              {footer ? (
+                <View style={[
+                  styles.messageBox, 
+                  { 
+                    marginTop: 8, 
+                    borderLeftWidth: 3, 
+                    borderLeftColor: accentColors.primary,
+                    paddingLeft: 12,
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'
+                  }
+                ]}>
+                  <Text
+                    style={[
+                      styles.messageText,
+                      { color: isDark ? '#94A3B8' : '#64748B', fontStyle: 'italic', fontSize: 13 },
+                    ]}
+                  >
+                    {footer}
+                  </Text>
+                </View>
+              ) : null}
+
               {/* Optional Announcement Image */}
               {announcement.imageUrl ? (
                 <TouchableOpacity
                   activeOpacity={0.9}
                   onPress={() => setImageViewerOpen(true)}
-                  style={styles.imageWrapper}
+                  style={[styles.imageWrapper, { marginTop: 12 }]}
                 >
                   <Image
                     source={{ uri: announcement.imageUrl }}
@@ -160,18 +215,6 @@ export const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
                   </View>
                 </TouchableOpacity>
               ) : null}
-
-              {/* Message text */}
-              <View style={styles.messageBox}>
-                <Text
-                  style={[
-                    styles.messageText,
-                    { color: isDark ? '#F1F5F9' : '#1E293B' },
-                  ]}
-                >
-                  {announcement.message}
-                </Text>
-              </View>
 
               {/* Author and Date Footer */}
               <View

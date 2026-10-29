@@ -47,6 +47,11 @@ function formatRelativeTime(dateString: string): string {
   }
 }
 
+function stripHtmlTags(text?: string | null): string {
+  if (!text) return '';
+  return text.replace(/<[^>]*>?/gm, '').replace(/&nbsp;/g, ' ').trim();
+}
+
 import { useToast } from '../context/ToastContext';
 
 export default function NotificationsScreen() {
@@ -225,7 +230,7 @@ export default function NotificationsScreen() {
             ]}
             numberOfLines={3}
           >
-            {item.message}
+            {stripHtmlTags(item.message)}
           </Text>
 
           {item.imageUrl && (

@@ -6,10 +6,9 @@ import {
   Dimensions,
   TouchableOpacity,
   FlatList,
-  StatusBar,
-  ViewToken,
   Image,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +18,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { OnboardingStorage } from '../utils/onboardingStorage';
 import { useAuth } from '../context/AuthContext';
+
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -51,6 +51,15 @@ const SLIDES: OnboardingSlide[] = [
     gradient: ['#0a1628', '#0d2137', '#062030'],
     accentColor: '#06b6d4',
     features: ['Face ID verification', 'GPS check-in', 'Real-time tracking'],
+  },
+  {
+    id: 'feed',
+    title: 'Company Feed &\nAnnouncements',
+    subtitle: 'Stay updated with company announcements, milestones, team posts, and interactive polls.',
+    emoji: '📢',
+    gradient: ['#120e2e', '#1e1045', '#2a125c'],
+    accentColor: '#a855f7',
+    features: ['Company announcements', 'Interactive polls', 'Team social feed'],
   },
   {
     id: 'payroll',
@@ -305,7 +314,7 @@ export default function OnboardingScreen() {
   }, [router, isAuthenticated]);
 
   const onViewableItemsChanged = useRef(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    ({ viewableItems }: { viewableItems: any[] }) => {
       if (viewableItems[0]?.index !== null && viewableItems[0]?.index !== undefined) {
         setActiveIndex(viewableItems[0].index);
       }
@@ -318,7 +327,7 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+      <StatusBar style="light" />
 
       {/* Slides */}
       <FlatList

@@ -518,7 +518,6 @@ export default function ProfileScreen() {
             accessibilityRole="button"
             accessibilityLabel="Edit Profile Details"
           >
-            <Ionicons name="pencil" size={14} color={accentColors.primary} style={{ marginRight: 4 }} />
             <Text style={[styles.editHeaderBtnText, { color: accentColors.primary }]}>Edit</Text>
           </TouchableOpacity>
         }

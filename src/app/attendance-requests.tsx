@@ -513,7 +513,7 @@ export default function AttendanceRequestsScreen() {
                   />
                 </TouchableOpacity>
               </View>
-            ) : null
+            ) : undefined
           }
         />
       )}

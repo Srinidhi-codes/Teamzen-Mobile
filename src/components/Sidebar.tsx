@@ -217,6 +217,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         <ScrollView style={styles.sidebarBody} contentContainerStyle={styles.sidebarBodyContent}>
           <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Core Navigation</Text>
           {renderNavItem('home-outline', 'Dashboard', '/(tabs)', ['/(tabs)', '/index'])}
+          {renderNavItem('newspaper-outline', 'Company Feed', '/feed', ['/feed'])}
           {renderNavItem('time-outline', 'Attendance', '/attendance', ['/attendance'])}
           {renderNavItem('calendar-outline', 'Leaves', '/leave', ['/leave'])}
           {renderNavItem('people-outline', 'My Team', '/team', ['/team'])}

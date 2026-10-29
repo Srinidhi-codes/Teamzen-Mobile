@@ -8,10 +8,10 @@ import {
   ActivityIndicator,
   Text,
   Platform,
-  StatusBar,
   ScrollView,
   Dimensions,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -44,7 +44,7 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
+      <StatusBar style="light" />
       <View style={styles.container}>
         {/* Top Control Bar */}
         <View style={[styles.topBar, { top: Math.max(insets.top, Platform.OS === 'ios' ? 44 : 20) }]}>

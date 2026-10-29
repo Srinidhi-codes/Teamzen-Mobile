@@ -27,8 +27,8 @@ import { ErrorModal } from '../components/ErrorModal';
 WebBrowser.maybeCompleteAuthSession();
 
 const LOGIN_MUTATION = `
-  mutation Login($email: String!, $password: String!) {
-    login(email: $email, password: $password) {
+  mutation Login($email: String!, $password: String!, $rememberMe: Boolean) {
+    login(email: $email, password: $password, rememberMe: $rememberMe) {
       access
       refresh
       totpRequired
@@ -61,6 +61,8 @@ export default function LoginScreen() {
   // New States
   const [authType, setAuthType] = useState<'password' | 'otp'>('password');
   const [step, setStep] = useState<'login' | 'otp_code' | 'totp'>('login');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [otpCode, setOtpCode] = useState('');
   const [totpCode, setTotpCode] = useState('');
   const [tempToken, setTempToken] = useState('');
@@ -222,7 +224,7 @@ export default function LoginScreen() {
         login: { access: string | null; refresh: string | null; totpRequired: boolean; tempToken: string | null } 
       }>(
         LOGIN_MUTATION,
-        { email: userIdentifier, password }
+        { email: userIdentifier, password, rememberMe }
       );
 
       if (result && result.login) {
@@ -253,7 +255,7 @@ export default function LoginScreen() {
     setIsLoading(true);
     try {
       const res = await restRequest<{ success: boolean; message: string; dev_otp?: string }>(
-        '/users/auth/otp/send/',
+        '/api/users/auth/otp/send/',
         {
           method: 'POST',
           body: JSON.stringify({ identifier: target }),
@@ -287,7 +289,7 @@ export default function LoginScreen() {
         refresh?: string; 
         totp_required?: boolean; 
         temp_token?: string 
-      }>('/users/auth/otp/verify/', {
+      }>('/api/users/auth/otp/verify/', {
         method: 'POST',
         body: JSON.stringify({ identifier: target, otp: otpCode }),
       });
@@ -316,7 +318,7 @@ export default function LoginScreen() {
         user: any; 
         access: string; 
         refresh: string 
-      }>('/users/auth/totp/verify/', {
+      }>('/api/users/auth/totp/verify/', {
         method: 'POST',
         body: JSON.stringify({ temp_token: tempToken, code: totpCode }),
       });
@@ -355,7 +357,7 @@ export default function LoginScreen() {
         totp_required?: boolean;
         temp_token?: string;
         error?: string;
-      }>('/users/auth/google/', {
+      }>('/api/users/auth/google/', {
         method: 'POST',
         body: JSON.stringify({ id_token: idToken }),
       });
@@ -496,12 +498,30 @@ export default function LoginScreen() {
                             style={styles.input}
                             placeholder="Password"
                             placeholderTextColor="#64748b"
-                            secureTextEntry
+                            secureTextEntry={!showPassword}
                             autoCapitalize="none"
                             autoCorrect={false}
                             value={password}
                             onChangeText={setPassword}
                           />
+                          <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: 15 }}>
+                            <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#94a3b8" />
+                          </TouchableOpacity>
+                        </View>
+
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+                          <TouchableOpacity 
+                            onPress={() => setRememberMe(!rememberMe)}
+                            style={{ flexDirection: 'row', alignItems: 'center' }}
+                          >
+                            <Ionicons 
+                              name={rememberMe ? "checkbox" : "square-outline"} 
+                              size={20} 
+                              color={rememberMe ? accentColors.primary : "#94a3b8"} 
+                              style={{ marginRight: 8 }} 
+                            />
+                            <Text style={{ color: '#94a3b8', fontSize: 14 }}>Remember me</Text>
+                          </TouchableOpacity>
                         </View>
                       </>
                     ) : (

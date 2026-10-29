@@ -21,7 +21,7 @@ interface GraphQLResponse<T> {
 }
 
 let isRefreshing = false;
-let refreshSubscribers: ((token: string) => void)[] = [];
+let refreshSubscribers: ((token: string | null) => void)[] = [];
 let authFailureCallback: (() => void) | null = null;
 let tokenRefreshedCallback: ((token: string) => void) | null = null;
 
@@ -39,12 +39,12 @@ function notifyAuthFailure() {
   }
 }
 
-function subscribeTokenRefresh(cb: (token: string) => void) {
+function subscribeTokenRefresh(cb: (token: string | null) => void) {
   refreshSubscribers.push(cb);
 }
 
-function onRefreshed(token: string) {
-  if (tokenRefreshedCallback) {
+function onRefreshed(token: string | null) {
+  if (token && tokenRefreshedCallback) {
     try {
       tokenRefreshedCallback(token);
     } catch (e) {
@@ -97,6 +97,7 @@ export async function refreshAccessToken(): Promise<string | null> {
   } catch (error) {
     console.error('Token refresh error:', error);
     await AuthService.clearTokens();
+    onRefreshed(null);
     return null;
   } finally {
     isRefreshing = false;
@@ -212,6 +213,7 @@ export async function restRequest<T>(
       if (newAccessToken) {
         return restRequest<T>(endpoint, options, false);
       } else {
+        notifyAuthFailure();
         throw new Error('Session expired. Please log in again.');
       }
     }

@@ -23,6 +23,7 @@ import { useAppTheme } from '../../context/ThemeContext';
 import { getHeroBannerConfig } from '../../utils/heroImages';
 import AttendanceTrendChart from '../../components/AttendanceTrendChart';
 import { NotificationService, subscribeUnreadCount } from '../../services/notifications';
+import { isAutoPunchOutRecord } from '../../utils/attendanceStatus';
 
 const DASHBOARD_QUERY = `
   query GetDashboardData {
@@ -54,9 +55,15 @@ const DASHBOARD_QUERY = `
     }
     myAttendance {
       id
+      attendanceDate
       loginTime
       logoutTime
       isWithinGeofence
+      status
+      workedHours
+      effectiveWorkedHours
+      remarks
+      isAutoPunchOut
     }
     userDashboardStats {
       attendanceRate
@@ -185,9 +192,15 @@ interface DashboardData {
   };
   myAttendance: Array<{
     id: string;
+    attendanceDate?: string;
     loginTime: string | null;
     logoutTime: string | null;
     isWithinGeofence: boolean;
+    status?: string | null;
+    workedHours?: number | null;
+    effectiveWorkedHours?: number | null;
+    remarks?: string | null;
+    isAutoPunchOut?: boolean;
   }>;
   userDashboardStats: UserDashboardStats;
 }
@@ -255,6 +268,12 @@ const DAY_STATUS_MAP: Record<
     bg: 'rgba(148, 163, 184, 0.15)',
     icon: 'calendar',
   },
+  auto_punch_out: {
+    label: 'Auto punch out',
+    dot: '#f97316',
+    bg: 'rgba(249, 115, 22, 0.12)',
+    icon: 'log-out-outline',
+  },
   not_started: {
     label: 'Pending check-in',
     dot: '#cbd5e1',
@@ -308,13 +327,10 @@ export default function DashboardScreen() {
         msg.includes('not authenticated') ||
         msg.includes('unauthorized') ||
         msg.includes('permission denied') ||
-        msg.includes('signature has expired')
+        msg.includes('signature has expired') ||
+        !cachedDashboardData
       ) {
         signOut();
-      } else {
-        if (!cachedDashboardData) {
-          Alert.alert('Error', 'Failed to fetch dashboard data. Please pull down to refresh.');
-        }
       }
     } finally {
       setIsLoading(false);
@@ -333,15 +349,25 @@ export default function DashboardScreen() {
   };
 
   const getAttendanceStatus = () => {
+    const isWeekend = [0, 6].includes(new Date().getDay());
     if (!data || !data.myAttendance || data.myAttendance.length === 0) {
+      if (isWeekend) {
+        return { status: 'Weekend Off', color: '#94a3b8', isPresent: false };
+      }
       return { status: 'Not Checked In', color: '#ef4444', isPresent: false };
     }
     const today = data.myAttendance[0];
+    if (isAutoPunchOutRecord(today)) {
+      return { status: 'Auto Punch Out', color: '#f97316', isPresent: true };
+    }
     if (today.loginTime && !today.logoutTime) {
       return { status: 'Checked In', color: '#10b981', isPresent: true };
     }
     if (today.loginTime && today.logoutTime) {
       return { status: 'Checked Out', color: accentColors.primary, isPresent: true };
+    }
+    if (isWeekend) {
+      return { status: 'Weekend Off', color: '#94a3b8', isPresent: false };
     }
     return { status: 'Not Checked In', color: '#ef4444', isPresent: false };
   };
@@ -923,6 +949,36 @@ export default function DashboardScreen() {
                 </View>
               </TouchableOpacity>
 
+              {/* 5. Company Feed */}
+              <TouchableOpacity
+                style={styles.serviceItem}
+                onPress={() => router.push('/feed' as any)}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.serviceIconBox, { backgroundColor: 'rgba(236, 72, 153, 0.12)' }]}>
+                  <Ionicons name="newspaper" size={20} color="#ec4899" />
+                </View>
+                <View style={styles.serviceMeta}>
+                  <Text style={styles.serviceTitle}>Company Feed</Text>
+                  <Text style={styles.serviceSub}>Posts & polls</Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* 6. Company Policies */}
+              <TouchableOpacity
+                style={styles.serviceItem}
+                onPress={() => router.push('/policies' as any)}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.serviceIconBox, { backgroundColor: 'rgba(6, 182, 212, 0.12)' }]}>
+                  <Ionicons name="book" size={20} color="#06b6d4" />
+                </View>
+                <View style={styles.serviceMeta}>
+                  <Text style={styles.serviceTitle}>Policies</Text>
+                  <Text style={styles.serviceSub}>Handbook & rules</Text>
+                </View>
+              </TouchableOpacity>
+
             </View>
           </View>
 
@@ -930,6 +986,8 @@ export default function DashboardScreen() {
           <AttendanceTrendChart
             data={stats?.attendanceTrend || []}
             currentRate={stats?.attendanceRate}
+            todayRecord={data?.myAttendance && data.myAttendance.length > 0 ? data.myAttendance[0] : null}
+            officeHoursRequired={8.0}
           />
 
           {/* ── 8. TEAM MOMENTS & CELEBRATIONS ── */}

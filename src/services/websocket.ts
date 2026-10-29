@@ -87,6 +87,12 @@ class WebSocketManager {
         this.stopHeartbeat();
         this.socket = null;
 
+        // Stop retrying if the server rejected authentication
+        if (event.code === 4401 || event.code === 4001 || event.code === 1008) {
+          this.token = null;
+          return;
+        }
+
         if (!this.isExplicitlyClosed) {
           this.scheduleReconnect();
         }
